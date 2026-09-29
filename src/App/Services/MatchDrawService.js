@@ -139,6 +139,10 @@ class MatchDrawService {
         if (availablePlayers.length < totalLineSlots) {
             throw new Error("There aren't enough players.");
         }
+        
+        if(totalLineSlots ===0 && goalkeepersNeeded.length === 0 ){
+                throw new Error("There are no more roster spots for outfield players, and no more goalkeepers to add.")
+            }
 
         let outfieldPlayers;
 
