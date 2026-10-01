@@ -13,6 +13,7 @@ module.exports = {
       match_id: {
         type: Sequelize.UUID,
         allowNull: false,
+        unique: true,
         references: {
           model: 'matches',
           key: 'id',

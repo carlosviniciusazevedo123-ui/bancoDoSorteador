@@ -11,6 +11,7 @@ class MatchEvaluator extends Model {
             },
             match_id: {
                 type: Sequelize.UUID,
+                unique: true,
                 allowNull: false,
             },
             evaluator_player_id: {

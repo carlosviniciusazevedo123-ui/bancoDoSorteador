@@ -8,7 +8,7 @@ import MatchEvaluator from "../Models/MatchEvaluator.js";
 import MatchPlayers from "../Models/MatchPlayers.js";
 import Player from "../Models/Player.js";
 import MatchEvaluatorSession from "../Models/MatchEvaluatorSessions.js"
-import { error } from "node:console";
+
 
 
 class MatchEvaluatorController {
@@ -64,6 +64,12 @@ class MatchEvaluatorController {
 
         if (existingEvaluator) {
 
+             if (existingEvaluator.used_at !== null) {
+            return response.status(410).json({
+                error: "O período de avaliação desta partida já foi encerrado",
+            });
+        }
+
             // Se o link ainda estiver válido, devolve o mesmo link.
             if (new Date(existingEvaluator.expires_at) > new Date()) {
                 return response.status(200).json({
@@ -72,11 +78,12 @@ class MatchEvaluatorController {
                     expires_at: existingEvaluator.expires_at,
                 });
             }
-            
+
             return response.status(410).json({
                 error: "O período de avaliação desta partida expirou"
             })
-            
+
+
         }
 
         // Token aleatório seguro.
@@ -139,6 +146,12 @@ class MatchEvaluatorController {
             });
         }
 
+        if (evaluator.used_at !== null) {
+            return response.status(410).json({
+                error: "O período de avaliação desta partida já foi encerrado",
+            });
+        }
+
         return response.status(200).json({
             match_id: evaluator.match_id,
             expires_at: evaluator.expires_at,
@@ -193,6 +206,11 @@ class MatchEvaluatorController {
         if (new Date(evaluator.expires_at) <= new Date()) {
             return response.status(410).json({
                 error: "O link de avaliação expirou",
+            });
+        }
+        if (evaluator.used_at !== null) {
+            return response.status(410).json({
+                error: "O período de avaliação desta partida já foi encerrado",
             });
         }
 
@@ -316,8 +334,6 @@ class MatchEvaluatorController {
             session_token: session.token
         });
     };
-
-
 
 }
 
