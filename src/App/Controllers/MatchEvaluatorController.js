@@ -8,6 +8,7 @@ import MatchEvaluator from "../Models/MatchEvaluator.js";
 import MatchPlayers from "../Models/MatchPlayers.js";
 import Player from "../Models/Player.js";
 import MatchEvaluatorSession from "../Models/MatchEvaluatorSessions.js"
+import { error } from "node:console";
 
 
 class MatchEvaluatorController {
@@ -71,9 +72,11 @@ class MatchEvaluatorController {
                     expires_at: existingEvaluator.expires_at,
                 });
             }
-
-            // Se expirou, gera um novo abaixo.
-            await existingEvaluator.destroy();
+            
+            return response.status(410).json({
+                error: "O período de avaliação desta partida expirou"
+            })
+            
         }
 
         // Token aleatório seguro.

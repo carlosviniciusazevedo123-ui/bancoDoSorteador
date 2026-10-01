@@ -3,7 +3,6 @@ import PlayerEvaluations from "../Models/PlayerEvaluations.js"
 import MatchEvaluator from "../Models/MatchEvaluator.js";
 import MatchPlayers from "../Models/MatchPlayers.js";
 import MatchEvaluatorSession from "../Models/MatchEvaluatorSessions.js";
-import updateRating from "../Services/RatingService.js";
 import Player from "../Models/Player.js";
 
 class PlayerEvaluationsController {
@@ -140,25 +139,7 @@ class PlayerEvaluationsController {
             speed,
             decision_making
         });
-        if (attack !== null && attack !== undefined) {
-            await updateRating(evaluatedPlayer, "attack", attack);
-        }
-        if (defense !== null && defense !== undefined) {
-            await updateRating(evaluatedPlayer, "defense", defense);
-        }
-        if (passing !== null && passing !== undefined) {
-            await updateRating(evaluatedPlayer, "passing", passing);
-        }
-        if (finishing !== null && finishing !== undefined) {
-            await updateRating(evaluatedPlayer, "finishing", finishing);
-        }
-         if (speed !== null && speed !== undefined) {
-            await updateRating(evaluatedPlayer, "speed", speed);
-        }
-        if (decision_making !== null && decision_making !== undefined) {
-            await updateRating(evaluatedPlayer, "decision_making", decision_making);
-        }
-
+        
         return response.status(201).json(evaluation);
     }
 
