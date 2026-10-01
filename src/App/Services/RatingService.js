@@ -1,49 +1,37 @@
 
-const attributes = [
-    "attack",
-    "defense",
-    "passing",
-    "finishing",
-    "speed",
-    "decision_making"
-];
+export default async function updateRating(
+    player,
+    averages,
+    evaluationWeight) {
 
-export default async function updateRating(player, attribute, evaluation) {
-    let current;
-    if (player[attribute] === null) {
-        current = player.overall_rating
-    } else {
-        current = player[attribute]
-    }
-
-    const difference = evaluation - current;
-
-    const adjustment = difference * 0.20;
-
-    const newRating = adjustment + current
-
-    const numberRating = Number(newRating.toFixed(1))
-
-    player[attribute] = numberRating
+    const currentRating = Number(player.overall_rating);
 
     let sum = 0;
-
     let count = 0;
 
-    for (const item of attributes) {
+    for (const attribute of Object.values(averages)) {
 
-        if (player[item] !== null) {
-            sum = sum + player[item];
-            count = count + 1;
+        if (attribute !== null) {
+            sum += Number(attribute);
+            count++;
         }
     }
-    if (count > 0) {
-        const average = sum / count
-        player.overall_rating = Number(average.toFixed(1))
-    }
-    await player.update({
-    overall_rating: player.overall_rating,
-    [attribute]: numberRating
-})
 
+    if (count === 0) {
+        return;
+    }
+
+    const evaluationAverage = Number((sum / count).toFixed(1));
+
+    const currentWeight = 1 - evaluationWeight;
+
+    const newRating =
+        currentRating * currentWeight +
+        evaluationAverage * evaluationWeight;
+
+    const numberRating = Number(newRating.toFixed(1));
+
+    await player.update({
+        overall_rating: numberRating
+    });
 }
