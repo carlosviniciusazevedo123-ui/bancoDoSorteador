@@ -4,7 +4,7 @@ const loginRateLimit = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 10,
     message: {
-        error: "Muitas tentativas. Tente novamente mais tarde.",
+        error: "Too many attempts. Please try again later.",
     },
 });
 
@@ -12,7 +12,7 @@ const registerRateLimit = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 5,
     message: {
-        error: "Muitas tentativas de cadastro. Tente novamente mais tarde.",
+        error: "Too many registration attempts. Please try again later.",
     },
 });
 
@@ -20,7 +20,7 @@ const evaluationRateLimit = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 20,
     message: {
-        error: "Muitas tentativas de avaliação. Tente novamente mais tarde.",
+        error: "Too many evaluation attempts. Please try again later.",
     },
 });
 

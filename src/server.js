@@ -18,7 +18,7 @@ setInterval(async () => {
     } catch (error) {
 
         console.error(
-            'Erro ao verificar partidas:',
+            'Error checking matches:',
             error
         );
     }

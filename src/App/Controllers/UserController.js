@@ -26,12 +26,12 @@ class UserController {
             });
         } catch (error) {
             return response.status(500).json({
-                error: "Erro ao consultar usuário"
+                error: "Error looking up user"
             });
         }
 
         if (existingUser) {
-            return response.status(400).json({ message: "Email já cadastrado" });
+            return response.status(400).json({ message: "Email is already registered" });
         }
 
         const password_hash = await bcrypt.hash(password, 8);

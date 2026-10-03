@@ -44,14 +44,14 @@ class MatchEvaluatorController {
 
         if (!match) {
             return response.status(404).json({
-                error: "Partida não encontrada",
+                error: "Match not found",
             });
         }
 
         // Só pode gerar o link depois que a partida terminar.
         if (match.status !== "finished") {
             return response.status(400).json({
-                error: "A avaliação só pode ser gerada após o término da partida",
+                error: "An evaluation link can only be generated after the match has finished",
             });
         }
 
@@ -66,7 +66,7 @@ class MatchEvaluatorController {
 
              if (existingEvaluator.used_at !== null) {
             return response.status(410).json({
-                error: "O período de avaliação desta partida já foi encerrado",
+                error: "The evaluation period for this match has ended",
             });
         }
 
@@ -80,7 +80,7 @@ class MatchEvaluatorController {
             }
 
             return response.status(410).json({
-                error: "O período de avaliação desta partida expirou"
+                error: "The evaluation period for this match has expired"
             })
 
 
@@ -135,20 +135,20 @@ class MatchEvaluatorController {
 
         if (!evaluator) {
             return response.status(404).json({
-                error: "Link de avaliação inválido",
+                error: "Invalid evaluation link",
             });
         }
 
         // Verifica se o link expirou.
         if (new Date(evaluator.expires_at) <= new Date()) {
             return response.status(410).json({
-                error: "O link de avaliação expirou",
+                error: "The evaluation link has expired",
             });
         }
 
         if (evaluator.used_at !== null) {
             return response.status(410).json({
-                error: "O período de avaliação desta partida já foi encerrado",
+                error: "The evaluation period for this match has ended",
             });
         }
 
@@ -198,19 +198,19 @@ class MatchEvaluatorController {
 
         if (!evaluator) {
             return response.status(404).json({
-                error: "Link de avaliação inválido",
+                error: "Invalid evaluation link",
             });
         }
 
         // 2. Verifica se o link ainda está dentro dos 10 minutos.
         if (new Date(evaluator.expires_at) <= new Date()) {
             return response.status(410).json({
-                error: "O link de avaliação expirou",
+                error: "The evaluation link has expired",
             });
         }
         if (evaluator.used_at !== null) {
             return response.status(410).json({
-                error: "O período de avaliação desta partida já foi encerrado",
+                error: "The evaluation period for this match has ended",
             });
         }
 
@@ -221,7 +221,7 @@ class MatchEvaluatorController {
 
         if (!match) {
             return response.status(404).json({
-                error: "Partida não encontrada",
+                error: "Match not found",
             });
         }
 
@@ -244,7 +244,7 @@ class MatchEvaluatorController {
 
         if (!player) {
             return response.status(404).json({
-                error: "Jogador não encontrado",
+                error: "Player not found",
             });
         }
 
@@ -258,7 +258,7 @@ class MatchEvaluatorController {
 
         if (!matchPlayer) {
             return response.status(403).json({
-                error: "Este jogador não participou desta partida",
+                error: "This player did not participate in this match",
             });
         }
 

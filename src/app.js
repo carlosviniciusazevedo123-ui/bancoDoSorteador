@@ -8,7 +8,7 @@ app.use(express.json({limit: "1mb"}));
 app.use(routes);
 app.use((request, response) => {
     return response.status(404).json({
-        error: "Rota não encontrada",
+        error: "Route not found",
     });  
 });
 app.use((error, request, response, next) => {

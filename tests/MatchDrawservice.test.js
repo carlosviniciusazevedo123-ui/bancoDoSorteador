@@ -115,7 +115,7 @@ describe("MatchDrawService", () => {
             .mockResolvedValue(createdPlayers);
     }
 
-    it("deve impedir o sorteio quando não houver goleiros suficientes", async () => {
+    it("should prevent the draw when there are not enough goalkeepers", async () => {
         const { match } = await createMatchWithTeams(2);
 
         await createPlayer({
@@ -152,7 +152,7 @@ describe("MatchDrawService", () => {
         ).rejects.toThrow("There aren't enough goalkeepers.");
     });
 
-    it("deve impedir o sorteio quando não houver jogadores suficientes", async () => {
+    it("should prevent the draw when there are not enough players", async () => {
         const { match } = await createMatchWithTeams(2);
 
         await createPlayer({
@@ -181,7 +181,7 @@ describe("MatchDrawService", () => {
         ).rejects.toThrow("There aren't enough players.");
     });
 
-    it("deve realizar o sorteio", async () => {
+    it("should draw teams successfully", async () => {
         const { match } = await createMatchWithTeams(2);
 
         await createPlayer({
@@ -216,7 +216,7 @@ describe("MatchDrawService", () => {
         ).toBe(true);
     });
 
-    it("deve impedir um novo sorteio quando não houver jogadores disponíveis", async () => {
+    it("should prevent another draw when no players are available", async () => {
         const { match, teams } = await createMatchWithTeams(2);
 
         const player1 = await createPlayer({
@@ -263,7 +263,7 @@ describe("MatchDrawService", () => {
         );
     });
 
-    it("deve preencher as reservas em um segundo sorteio", async () => {
+    it("should fill reserve slots in a second draw", async () => {
         const { match, teams } = await createMatchWithTeams(2);
 
         const player1 = await createPlayer({

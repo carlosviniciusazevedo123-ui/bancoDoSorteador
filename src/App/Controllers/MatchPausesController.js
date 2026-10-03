@@ -32,14 +32,14 @@ class MatchPausesController {
             if (!match) {
                 await transaction.rollback();
 
-                return response.status(404).json({ error: 'Partida não encontrada', });
+                return response.status(404).json({ error: 'Match not found', });
 
             } if (match.status !== 'in_progress') {
 
                 await transaction.rollback();
 
                 return response.status(400).json({
-                    error: 'A partida não está em andamento',
+                    error: 'The match is not in progress',
                 });
             }
 
@@ -54,7 +54,7 @@ class MatchPausesController {
             if (openPause) {
 
                 await transaction.rollback();
-                return response.status(409).json({ error: 'A partida já possui uma pausa aberta', }
+                return response.status(409).json({ error: 'The match already has an open pause', }
 
                 );
             }
@@ -108,14 +108,14 @@ class MatchPausesController {
             if (!match) {
                 await transaction.rollback();
 
-                return response.status(404).json({ error: 'Partida não encontrada', }
+                return response.status(404).json({ error: 'Match not found', }
 
                 );
 
             } if (match.status !== 'paused') {
                 await transaction.rollback();
                 return response.status(400).json({
-                    error: 'A partida não está pausada',
+                    error: 'The match is not paused',
                 }
                 );
             }
@@ -135,7 +135,7 @@ class MatchPausesController {
                 await transaction.rollback();
 
                 return response.status(409).json({
-                    error: 'Nenhuma pausa aberta foi encontrada para a partida',
+                    error: 'No open pause was found for this match',
                 }
                 );
             }

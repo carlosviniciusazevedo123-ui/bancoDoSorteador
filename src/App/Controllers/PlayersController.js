@@ -48,7 +48,7 @@ class PlayersController {
 
         if (existingPlayer) {
             return response.status(400).json({
-                error: "Já existe um jogador com esse nome",
+                error: "A player with this name already exists",
             });
         }
 
@@ -94,7 +94,7 @@ class PlayersController {
 
         if (!player) {
             return response.status(404).json({
-                error: "Jogador não encontrado",
+                error: "Player not found",
             });
         }
 
@@ -131,7 +131,7 @@ class PlayersController {
 
         if (!player) {
             return response.status(404).json({
-                error: "Jogador não encontrado",
+                error: "Player not found",
             });
         }
 
@@ -163,7 +163,7 @@ class PlayersController {
                 existingPlayer.id !== player.id
             ) {
                 return response.status(400).json({
-                    error: "Já existe um jogador com esse nome",
+                    error: "A player with this name already exists",
                 });
             }
         }
@@ -186,7 +186,7 @@ class PlayersController {
 
         if (!player) {
             return response.status(404).json({
-                error: "Jogador não encontrado",
+                error: "Player not found",
             });
         }
         const playerInMatch = await MatchPlayers.findOne({
@@ -197,7 +197,7 @@ class PlayersController {
 
         if (playerInMatch) {
             return response.status(409).json({
-                error: "Não é possível excluir um jogador que já participou de uma partida.",
+                error: "A player who has participated in a match cannot be deleted.",
             });
         }
 
@@ -208,4 +208,3 @@ class PlayersController {
 }
 
 export default new PlayersController();
-

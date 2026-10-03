@@ -25,14 +25,14 @@ class MatchTeamsController {
         const match = await Matches.findByPk(match_id);
 
         if (!match) {
-            return response.status(404).json({ error: "Partida não encontrada" });
+            return response.status(404).json({ error: "Match not found" });
         }
         if(match.status !== "pending"){
-            return response.status(403).json({error:"Não pode haver alterações nos times no momento"})
+            return response.status(403).json({error:"Teams cannot be modified at this time"})
         }
 
         if (match.user_id !== request.userId) {
-            return response.status(403).json({ error: "Sem permissão para alterar esta partida" });
+            return response.status(403).json({ error: "You do not have permission to modify this match" });
         }
 
         const existingTeam = await MatchTeams.findOne({
@@ -40,7 +40,7 @@ class MatchTeamsController {
         });
 
         if (existingTeam) {
-            return response.status(400).json({ error: "Número de time já usado nesta partida" });
+            return response.status(400).json({ error: "This team number is already in use in this match" });
         }
 
         const team = await MatchTeams.create({ name, team_number, score, match_id });

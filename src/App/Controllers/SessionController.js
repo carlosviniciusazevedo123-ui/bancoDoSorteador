@@ -17,7 +17,7 @@ class SessionController {
         });
 
         const emailOrPasswordInvalid = () => response.status(400).json({
-            error: "Email ou senha inválidos",
+            error: "Invalid email or password",
         });
 
         if (!isValid) {

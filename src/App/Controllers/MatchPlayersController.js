@@ -32,15 +32,15 @@ class MatchPlayersController {
         const match = await Matches.findByPk(match_id);
 
         if (!match) {
-            return response.status(404).json({ error: "Partida não encontrada" });
+            return response.status(404).json({ error: "Match not found" });
         }
 
         if (match.user_id !== request.userId) {
-            return response.status(403).json({ error: "Sem permissão para alterar esta partida" });
+            return response.status(403).json({ error: "You do not have permission to modify this match" });
         }
 
         if(match.status !== "pending"){
-            return response.status(403).json({error:"Não pode haver alterações nos jogadores no momento"})
+            return response.status(403).json({error:"Players cannot be modified at this time"})
         }
 
         const team = await MatchTeams.findOne({
@@ -48,7 +48,7 @@ class MatchPlayersController {
         });
 
         if (!team) {
-            return response.status(404).json({ error: "Time não encontrado nesta partida" });
+            return response.status(404).json({ error: "Team not found in this match" });
         }
 
         const player = await Player.findOne({
@@ -56,7 +56,7 @@ class MatchPlayersController {
         });
 
         if (!player) {
-            return response.status(404).json({ error: "Jogador não encontrado" });
+            return response.status(404).json({ error: "Player not found" });
         }
 
         const existingMatchPlayer = await MatchPlayers.findOne({
@@ -64,7 +64,7 @@ class MatchPlayersController {
         });
 
         if (existingMatchPlayer) {
-            return response.status(400).json({ error: "Jogador já adicionado à partida" });
+            return response.status(400).json({ error: "Player has already been added to this match" });
         }
 
         const matchPlayer = await MatchPlayers.create({

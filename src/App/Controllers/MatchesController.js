@@ -39,7 +39,7 @@ class MatchesController {
         if (!user) {
 
             return response.status(404).json({
-                error: "Usuário não encontrado",
+                error: "User not found",
             });
         }
 
@@ -98,7 +98,7 @@ class MatchesController {
         if (!match) {
 
             return response.status(404).json({
-                error: "Partida não encontrada",
+                error: "Match not found",
             });
         }
 
@@ -166,14 +166,14 @@ class MatchesController {
         if (!match) {
 
             return response.status(404).json({
-                error: "Partida não encontrada",
+                error: "Match not found",
             });
         }
 
         if (match.status !== "pending") {
 
             return response.status(400).json({
-                error: "A duração só pode ser alterada antes do início da partida",
+                error: "The match duration can only be changed before the match starts",
             });
         }
 
@@ -219,7 +219,7 @@ class MatchesController {
         if (!match) {
 
             return response.status(404).json({
-                error: "Partida não encontrada",
+                error: "Match not found",
             });
         }
 
@@ -265,14 +265,14 @@ class MatchesController {
             if (!match) {
 
                 return response.status(404).json({
-                    error: "Partida não encontrada",
+                    error: "Match not found",
                 });
             }
 
             if (match.status !== "pending") {
 
                 return response.status(400).json({
-                    error: "A partida não pode ser iniciada",
+                    error: "The match cannot be started",
                 });
             }
 
@@ -326,28 +326,28 @@ class MatchesController {
         if (!match) {
 
             return response.status(404).json({
-                error: "Partida não encontrada",
+                error: "Match not found",
             });
         }
 
         if (match.status === "finished") {
 
             return response.status(400).json({
-                error: "A partida já foi finalizada",
+                error: "The match has already finished",
             });
         }
 
         if (match.status === "pending") {
 
             return response.status(400).json({
-                error: "A partida ainda não foi iniciada",
+                error: "The match has not started yet",
             });
         }
 
         if (match.status === "paused") {
 
             return response.status(400).json({
-                error: "A partida está pausada. Retome a partida antes de finalizá-la",
+                error: "The match is paused. Resume it before finishing",
             });
         }
 
@@ -358,4 +358,3 @@ class MatchesController {
 }
 
 export default new MatchesController();
-

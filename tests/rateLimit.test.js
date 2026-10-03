@@ -3,7 +3,7 @@ import request from "supertest";
 import app from "../src/app.js";
 
 describe("rate limit de login", () => {
-    it("retorna 429 após exceder 10 tentativas em /sessions", async () => {
+    it("returns 429 after more than 10 attempts to /sessions", async () => {
         const responses = [];
 
         for (let attempt = 0; attempt < 11; attempt += 1) {
