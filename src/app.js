@@ -1,6 +1,7 @@
 import express from 'express';
 import './Database/index.js';
 import routes from './Routes.js';
+import * as Yup from 'yup';
 
 const app = express();
 
@@ -14,8 +15,14 @@ app.use((request, response) => {
 app.use((error, request, response, next) => {
     console.error(error);
 
+    if (error instanceof Yup.ValidationError) {
+    return response.status(400).json({
+        error: error.message,
+    });
+}
+
     return response.status(500).json({
-        error: "Erro interno do servidor",
+        error: "Internal server error",
     });
 });
 

@@ -83,7 +83,13 @@ class PlayersController {
 
     async show(request, response) {
 
+        const schema = Yup.object({
+            id: Yup.string().uuid().required(),
+        });
+
         const { id } = request.params;
+
+        await schema.validate(request.params);
 
         const player = await Player.findOne({
             where: {
