@@ -2,7 +2,11 @@ import { config } from "dotenv";
 
 config();
 
-export default{
-    secret: process.env.JWT_SECRET ,
-    expiresIn: '15d'
+if (!process.env.JWT_SECRET) {
+    throw new Error("JWT_SECRET não foi definido");
 }
+
+export default {
+    secret: process.env.JWT_SECRET,
+    expiresIn: "15d"
+};

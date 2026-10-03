@@ -13,8 +13,6 @@ import Player from "../src/App/Models/Player.js";
 import Matches from "../src/App/Models/Matches.js";
 import MatchTeams from "../src/App/Models/MatchTeams.js";
 import MatchPlayers from "../src/App/Models/MatchPlayers.js";
-import Matches from "../src/App/Models/Matches.js";
-import MatchTeams from "../src/App/Models/MatchTeams.js";
 
 import "../src/Database/index.js";
 

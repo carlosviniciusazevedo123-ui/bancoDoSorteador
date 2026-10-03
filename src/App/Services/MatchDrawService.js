@@ -54,7 +54,7 @@ class MatchDrawService {
             for (let index = 0; index < playersInTeam.length; index++) {
                 const element = playersInTeam[index];
 
-                sum = sum + element.player.overall_rating;
+                sum = sum + Number(element.player.overall_rating);
             }
 
             let average;
@@ -139,10 +139,10 @@ class MatchDrawService {
         if (availablePlayers.length < totalLineSlots) {
             throw new Error("There aren't enough players.");
         }
-        
-        if(totalLineSlots ===0 && goalkeepersNeeded.length === 0 ){
-                throw new Error("There are no more roster spots for outfield players, and no more goalkeepers to add.")
-            }
+
+        if (totalLineSlots === 0 && goalkeepersNeeded.length === 0) {
+            throw new Error("There are no more roster spots for outfield players, and no more goalkeepers to add.")
+        }
 
         let outfieldPlayers;
 
@@ -216,7 +216,7 @@ class MatchDrawService {
             });
 
             lowestScore.sum =
-                lowestScore.sum + element.overall_rating;
+                lowestScore.sum + Number(element.overall_rating);
 
             lowestScore.playerCount =
                 lowestScore.playerCount + 1;
@@ -254,7 +254,7 @@ class MatchDrawService {
             });
 
             teamScore.sum =
-                teamScore.sum + goalkeeper.overall_rating;
+                teamScore.sum + Number(goalkeeper.overall_rating);
 
             teamScore.playerCount =
                 teamScore.playerCount + 1;
