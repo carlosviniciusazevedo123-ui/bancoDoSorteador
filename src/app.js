@@ -2,9 +2,11 @@ import express from 'express';
 import './Database/index.js';
 import routes from './Routes.js';
 import * as Yup from 'yup';
+import cors from 'cors';
 
 const app = express();
 
+app.use(cors());
 app.use(express.json({limit: "1mb"}));
 app.use(routes);
 app.use((request, response) => {
