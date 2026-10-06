@@ -122,6 +122,11 @@ routes.post(
 );
 
 routes.get(
+    "/matches/:match_id/games",
+    MatchGameController.index
+);
+
+routes.get(
     "/matches/:match_id/games/:game_id",
     MatchGameController.show
 );
