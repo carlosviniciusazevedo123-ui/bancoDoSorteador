@@ -1,202 +1,186 @@
 import { Op } from "sequelize";
+import Database from "../../Database/index.js";
 import MatchEvaluator from "../Models/MatchEvaluator.js";
 import Matches from "../Models/Matches.js";
 import MatchPlayers from "../Models/MatchPlayers.js";
 import PlayerEvaluations from "../Models/PlayerEvaluations.js";
 import Player from "../Models/Player.js";
-import updateRating from "./RatingService.js"
+import updateRating from "./RatingService.js";
 
 class EvaluationExpirationService {
-
     isRunning = false;
 
     async checkEvaluations() {
-
-        if (this.isRunning === true) {
+        if (this.isRunning) {
             return;
         }
-        this.isRunning = true;
-        try {
 
+        this.isRunning = true;
+
+        try {
             const evaluators = await MatchEvaluator.findAll({
+                attributes: ["id"],
                 where: {
-                    expires_at: {
-                        [Op.lte]: new Date()
-                    },
-                    used_at: null
+                    expires_at: { [Op.lte]: new Date() },
+                    used_at: null,
                 },
-                include: [
-                    {
-                        model: Matches,
-                        as: "match"
-                    }
-                ]
             });
 
-
             for (const evaluator of evaluators) {
+                await this.processEvaluator(evaluator.id);
+            }
+        } finally {
+            this.isRunning = false;
+        }
+    }
 
-                const match = evaluator.match;
+    async processEvaluator(evaluatorId) {
+        const transaction = await Database.connection.transaction();
 
+        try {
+            // The row lock and used_at check make this safe across processes.
+            const evaluator = await MatchEvaluator.findByPk(evaluatorId, {
+                transaction,
+                lock: transaction.LOCK.UPDATE,
+            });
 
-                const matchPlayers = await MatchPlayers.findAll({
-                    where: {
-                        match_id: match.id
-                    }
-                });
+            if (
+                !evaluator ||
+                evaluator.used_at !== null ||
+                new Date(evaluator.expires_at) > new Date()
+            ) {
+                await transaction.rollback();
+                return;
+            }
 
+            const match = await Matches.findByPk(evaluator.match_id, {
+                transaction,
+            });
 
-                const playerEvaluations = await PlayerEvaluations.findAll({
-                    where: {
-                        match_id: match.id
-                    }
-                });
+            if (!match) {
+                await evaluator.update(
+                    { used_at: new Date() },
+                    { transaction }
+                );
+                await transaction.commit();
+                return;
+            }
 
+            const matchPlayers = await MatchPlayers.findAll({
+                where: { match_id: match.id },
+                transaction,
+            });
 
-                for (const matchPlayer of matchPlayers) {
+            const playerEvaluations = await PlayerEvaluations.findAll({
+                where: { match_id: match.id },
+                transaction,
+            });
 
+            for (const matchPlayer of matchPlayers) {
+                const possibleEvaluators = matchPlayers.filter(
+                    (player) =>
+                        player.team_id === matchPlayer.team_id &&
+                        player.player_id !== matchPlayer.player_id
+                );
 
-                    const possibleEvaluators = matchPlayers.filter((player) => {
-                        return (
-                            player.team_id === matchPlayer.team_id &&
-                            player.player_id !== matchPlayer.player_id
-                        );
-                    });
+                if (possibleEvaluators.length === 0) {
+                    continue;
+                }
 
+                const receivedEvaluations = playerEvaluations.filter(
+                    (evaluation) =>
+                        evaluation.evaluated_player_id === matchPlayer.player_id &&
+                        possibleEvaluators.some(
+                            (player) => player.player_id === evaluation.evaluator_id
+                        ) && [
+                            evaluation.attack,
+                            evaluation.defense,
+                            evaluation.passing,
+                            evaluation.finishing,
+                            evaluation.speed,
+                            evaluation.decision_making,
+                        ].some((value) => value !== null)
+                );
 
-                    if (possibleEvaluators.length === 0) {
-                        continue;
-                    }
+                const evaluationWeight =
+                    receivedEvaluations.length / possibleEvaluators.length;
 
-                    const receivedEvaluations = playerEvaluations.filter((evaluation) => {
-                        return (
-                            evaluation.evaluated_player_id === matchPlayer.player_id &&
-                            possibleEvaluators.some((player) =>
-                                player.player_id === evaluation.evaluator_id
-                            ) && (
-                                evaluation.attack !== null ||
-                                evaluation.defense !== null ||
-                                evaluation.passing !== null ||
-                                evaluation.finishing !== null ||
-                                evaluation.speed !== null ||
-                                evaluation.decision_making !== null
-                            )
-                        );
-                    });
+                const totals = receivedEvaluations.reduce(
+                    (result, evaluation) => {
+                        const attributes = [
+                            ["attack", "attackCount"],
+                            ["defense", "defenseCount"],
+                            ["passing", "passingCount"],
+                            ["finishing", "finishingCount"],
+                            ["speed", "speedCount"],
+                            ["decision_making", "decisionMakingCount"],
+                        ];
 
-                    const evaluationWeight =
-                        receivedEvaluations.length / possibleEvaluators.length;
-
-
-                    const totals = receivedEvaluations.reduce((acc, evaluation) => {
-
-
-                        if (evaluation.attack !== null) {
-                            acc.attack += Number(evaluation.attack);
-                            acc.attackCount++;
+                        for (const [attribute, count] of attributes) {
+                            if (evaluation[attribute] !== null) {
+                                result[attribute] += Number(evaluation[attribute]);
+                                result[count]++;
+                            }
                         }
 
-
-                        if (evaluation.defense !== null) {
-                            acc.defense += Number(evaluation.defense);
-                            acc.defenseCount++;
-                        }
-
-
-                        if (evaluation.passing !== null) {
-                            acc.passing += Number(evaluation.passing);
-                            acc.passingCount++;
-                        }
-
-
-                        if (evaluation.finishing !== null) {
-                            acc.finishing += Number(evaluation.finishing);
-                            acc.finishingCount++;
-                        }
-
-
-                        if (evaluation.speed !== null) {
-                            acc.speed += Number(evaluation.speed);
-                            acc.speedCount++;
-                        }
-
-
-                        if (evaluation.decision_making !== null) {
-                            acc.decision_making += Number(evaluation.decision_making);
-                            acc.decisionMakingCount++;
-                        }
-
-                        return acc;
-
-                    }, {
-
+                        return result;
+                    },
+                    {
                         attack: 0,
                         defense: 0,
                         passing: 0,
                         finishing: 0,
                         speed: 0,
                         decision_making: 0,
-
                         attackCount: 0,
                         defenseCount: 0,
                         passingCount: 0,
                         finishingCount: 0,
                         speedCount: 0,
-                        decisionMakingCount: 0
-
-                    });
-
-                    const averages = {
-
-                        attack: totals.attackCount > 0
-                            ? Number((totals.attack / totals.attackCount).toFixed(1))
-                            : null,
-
-                        defense: totals.defenseCount > 0
-                            ? Number((totals.defense / totals.defenseCount).toFixed(1))
-                            : null,
-
-                        passing: totals.passingCount > 0
-                            ? Number((totals.passing / totals.passingCount).toFixed(1))
-                            : null,
-
-                        finishing: totals.finishingCount > 0
-                            ? Number((totals.finishing / totals.finishingCount).toFixed(1))
-                            : null,
-
-                        speed: totals.speedCount > 0
-                            ? Number((totals.speed / totals.speedCount).toFixed(1))
-                            : null,
-
-                        decision_making: totals.decisionMakingCount > 0
-                            ? Number((totals.decision_making / totals.decisionMakingCount).toFixed(1))
-                            : null,
-                    };
-
-                    const ratedPlayer = await Player.findByPk(
-                        matchPlayer.player_id,
-                    );
-
-                    if (!ratedPlayer) {
-                        continue;
+                        decisionMakingCount: 0,
                     }
+                );
 
+                const averages = {
+                    attack: this.average(totals.attack, totals.attackCount),
+                    defense: this.average(totals.defense, totals.defenseCount),
+                    passing: this.average(totals.passing, totals.passingCount),
+                    finishing: this.average(totals.finishing, totals.finishingCount),
+                    speed: this.average(totals.speed, totals.speedCount),
+                    decision_making: this.average(
+                        totals.decision_making,
+                        totals.decisionMakingCount
+                    ),
+                };
+
+                const ratedPlayer = await Player.findByPk(
+                    matchPlayer.player_id,
+                    { transaction }
+                );
+
+                if (ratedPlayer) {
                     await updateRating(
                         ratedPlayer,
                         averages,
-                        evaluationWeight
+                        evaluationWeight,
+                        transaction
                     );
                 }
-                await evaluator.update({
-                    used_at: new Date()
-                });
             }
 
-
-        } finally {
-            this.isRunning = false
+            await evaluator.update(
+                { used_at: new Date() },
+                { transaction }
+            );
+            await transaction.commit();
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
         }
+    }
 
+    average(total, count) {
+        return count > 0 ? Number((total / count).toFixed(1)) : null;
     }
 }
 

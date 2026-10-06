@@ -3,7 +3,7 @@ import MatchGames from "../Models/MatchGames.js";
 import MatchPauses from "../Models/MatchPauses.js";
 
 class MatchGameTimeService {
-    async getElapsedTime(game) {
+    async getElapsedTime(game, transaction) {
         if (!game.started_at) {
             return 0;
         }
@@ -23,6 +23,7 @@ class MatchGameTimeService {
                 game_id: game.id,
             },
             order: [["started_at", "ASC"]],
+            ...(transaction ? { transaction } : {}),
         });
 
         let pausedMilliseconds = 0;
@@ -50,9 +51,9 @@ class MatchGameTimeService {
         );
     }
 
-    async getElapsedSeconds(game) {
+    async getElapsedSeconds(game, transaction) {
         const milliseconds =
-            await this.getElapsedTime(game);
+            await this.getElapsedTime(game, transaction);
 
         return Math.floor(
             milliseconds / 1000
@@ -68,13 +69,13 @@ class MatchGameTimeService {
         );
     }
 
-    async isFinished(game) {
+    async isFinished(game, transaction) {
         if (!game.started_at) {
             return false;
         }
 
         const elapsedSeconds =
-            await this.getElapsedSeconds(game);
+            await this.getElapsedSeconds(game, transaction);
 
         const durationSeconds =
             game.duration * 60;

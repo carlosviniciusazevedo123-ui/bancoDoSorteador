@@ -1,56 +1,92 @@
+import Database from "../../Database/index.js";
 import MatchGames from "../Models/MatchGames.js";
+import Matches from "../Models/Matches.js";
 import MatchGameTimeService from "./MatchGameTimeService.js";
 import MatchFinishService from "./MatchFinishService.js";
-import Matches from "../Models/Matches.js";
 
 class MatchGameExpirationService {
+    isRunning = false;
+
     async checkGames() {
-        const games = await MatchGames.findAll({
-            where: {
-                status: "in_progress",
-            },
-        });
+        if (this.isRunning) {
+            return;
+        }
 
-        for (const game of games) {
-            const finished =
-                await MatchGameTimeService.isFinished(game);
+        this.isRunning = true;
 
-            if (!finished) {
-                continue;
-            }
-
-            await game.update({
-                status: "finished",
-                finished_at: new Date(),
-                winner_team_id: null,
+        try {
+            const games = await MatchGames.findAll({
+                attributes: ["id"],
+                where: { status: "in_progress" },
             });
 
-            const unfinishedGames =
-                await MatchGames.count({
-                    where: {
-                        match_id: game.match_id,
-                        status: [
-                            "pending",
-                            "in_progress",
-                            "paused",
-                        ],
-                    },
-                });
+            for (const game of games) {
+                await this.processGame(game.id);
+            }
+        } finally {
+            this.isRunning = false;
+        }
+    }
+
+    async processGame(gameId) {
+        const transaction = await Database.connection.transaction();
+
+        try {
+            const gameSnapshot = await MatchGames.findByPk(gameId, {
+                transaction,
+            });
+
+            if (!gameSnapshot) {
+                await transaction.rollback();
+                return;
+            }
+
+            const match = await Matches.findByPk(gameSnapshot.match_id, {
+                transaction,
+                lock: transaction.LOCK.UPDATE,
+            });
+
+            const game = await MatchGames.findByPk(gameId, {
+                transaction,
+                lock: transaction.LOCK.UPDATE,
+            });
+
+            if (
+                !match ||
+                match.status !== "in_progress" ||
+                !game ||
+                game.status !== "in_progress" ||
+                !(await MatchGameTimeService.isFinished(game, transaction))
+            ) {
+                await transaction.rollback();
+                return;
+            }
+
+            await game.update(
+                {
+                    status: "finished",
+                    finished_at: new Date(),
+                    winner_team_id: null,
+                },
+                { transaction }
+            );
+
+            const unfinishedGames = await MatchGames.count({
+                where: {
+                    match_id: match.id,
+                    status: ["pending", "in_progress", "paused"],
+                },
+                transaction,
+            });
 
             if (unfinishedGames === 0) {
-                const match = await Matches.findByPk(
-                    game.match_id
-                );
-
-                if (
-                    match &&
-                    match.status === "in_progress"
-                ) {
-                    await MatchFinishService.finish(
-                        match
-                    );
-                }
+                await MatchFinishService.finish(match, transaction);
             }
+
+            await transaction.commit();
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
         }
     }
 }

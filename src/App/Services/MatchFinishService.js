@@ -3,8 +3,9 @@ import MatchEvaluationService from "./MatchEvaluationService.js";
 import Database from "../../Database/index.js";
 
 class MatchFinishService {
-    async finish(match) {
-        const transaction =
+    async finish(match, existingTransaction = null) {
+        const ownsTransaction = !existingTransaction;
+        const transaction = existingTransaction ||
             await Database.connection.transaction();
 
         try {
@@ -17,12 +18,12 @@ class MatchFinishService {
             );
 
             if (!currentMatch) {
-                await transaction.rollback();
+                if (ownsTransaction) await transaction.rollback();
                 return false;
             }
 
             if (currentMatch.status !== "in_progress") {
-                await transaction.rollback();
+                if (ownsTransaction) await transaction.rollback();
                 return false;
             }
 
@@ -43,11 +44,11 @@ class MatchFinishService {
                 transaction
             );
 
-            await transaction.commit();
+            if (ownsTransaction) await transaction.commit();
 
             return true;
         } catch (error) {
-            await transaction.rollback();
+            if (ownsTransaction) await transaction.rollback();
 
             throw error;
         }

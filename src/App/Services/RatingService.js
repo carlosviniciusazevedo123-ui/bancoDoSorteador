@@ -2,7 +2,8 @@
 export default async function updateRating(
     player,
     averages,
-    evaluationWeight) {
+    evaluationWeight,
+    transaction) {
 
     const currentRating = Number(player.overall_rating);
 
@@ -33,5 +34,5 @@ export default async function updateRating(
 
     await player.update({
         overall_rating: numberRating
-    });
+    }, transaction ? { transaction } : undefined);
 }
