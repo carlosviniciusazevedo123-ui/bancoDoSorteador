@@ -26,10 +26,12 @@ class MatchFinishService {
                 return false;
             }
 
+            const finishedAt = new Date();
+
             await currentMatch.update(
                 {
                     status: "finished",
-                    finished_at: new Date(),
+                    finished_at: finishedAt,
                 },
                 {
                     transaction,
@@ -44,7 +46,6 @@ class MatchFinishService {
             await transaction.commit();
 
             return true;
-
         } catch (error) {
             await transaction.rollback();
 

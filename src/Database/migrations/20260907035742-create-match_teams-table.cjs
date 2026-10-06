@@ -34,7 +34,7 @@ module.exports = {
       },
 
       score: {
-        type: Sequelize.INTEGER,
+        type: Sequelize.DECIMAL(3,1),
         allowNull: false,
         defaultValue: 0,
       },

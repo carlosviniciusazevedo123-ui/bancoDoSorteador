@@ -1,22 +1,20 @@
+const Sequelize = require("sequelize");
 
-"use strict";
-
-/** @type {import('sequelize-cli').Migration} */
 module.exports = {
-    async up(queryInterface, Sequelize) {
-        await queryInterface.createTable("match_players", {
+    async up(queryInterface) {
+        await queryInterface.createTable("draw_players", {
             id: {
+                type: Sequelize.UUID,
                 primaryKey: true,
                 allowNull: false,
-                type: Sequelize.UUID,
                 defaultValue: Sequelize.UUIDV4,
             },
 
-            match_id: {
+            draw_id: {
                 type: Sequelize.UUID,
                 allowNull: false,
                 references: {
-                    model: "matches",
+                    model: "draws",
                     key: "id",
                 },
                 onUpdate: "CASCADE",
@@ -27,7 +25,7 @@ module.exports = {
                 type: Sequelize.UUID,
                 allowNull: false,
                 references: {
-                    model: "match_teams",
+                    model: "draw_teams",
                     key: "id",
                 },
                 onUpdate: "CASCADE",
@@ -43,16 +41,6 @@ module.exports = {
                 },
                 onUpdate: "CASCADE",
                 onDelete: "CASCADE",
-            },
-
-            player_name: {
-                type: Sequelize.STRING,
-                allowNull: false,
-            },
-
-            overall_rating: {
-                type: Sequelize.DECIMAL(3, 1),
-                allowNull: false,
             },
 
             number: {
@@ -72,12 +60,6 @@ module.exports = {
                 defaultValue: false,
             },
 
-            minutes_player: {
-                type: Sequelize.INTEGER,
-                allowNull: false,
-                defaultValue: 0,
-            },
-
             created_at: {
                 allowNull: false,
                 type: Sequelize.DATE,
@@ -93,6 +75,6 @@ module.exports = {
     },
 
     async down(queryInterface) {
-        await queryInterface.dropTable("match_players");
+        await queryInterface.dropTable("draw_players");
     },
 };

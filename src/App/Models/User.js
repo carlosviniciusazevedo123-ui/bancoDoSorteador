@@ -1,9 +1,7 @@
 import Sequelize, { Model } from "sequelize";
 
 class User extends Model {
-
     static init(sequelize) {
-
         super.init(
             {
                 id: {
@@ -41,7 +39,6 @@ class User extends Model {
     }
 
     static associate(models) {
-
         this.hasMany(models.Player, {
             foreignKey: "user_id",
             as: "players",
@@ -50,6 +47,11 @@ class User extends Model {
         this.hasMany(models.Matches, {
             foreignKey: "user_id",
             as: "matches",
+        });
+
+        this.hasMany(models.Draw, {
+            foreignKey: "user_id",
+            as: "draws",
         });
     }
 }

@@ -1,25 +1,31 @@
-
 import Sequelize from "sequelize";
 import Player from "../Models/Player.js";
 import MatchPlayers from "../Models/MatchPlayers.js";
 import * as Yup from "yup";
 
 class PlayersController {
-
     async store(request, response) {
-
         const schema = Yup.object({
-            name: Yup.string().required(),
-            position: Yup.string(),
-            is_goalkeeper: Yup.boolean().required(),
-            overall_rating: Yup.number().min(0).max(10).required(),
+            name: Yup.string()
+                .trim()
+                .min(1)
+                .required(),
 
+            position: Yup.string(),
+
+            is_goalkeeper: Yup.boolean()
+                .required(),
+
+            overall_rating: Yup.number()
+                .min(0)
+                .max(10)
+                .required(),
         });
 
         try {
             schema.validateSync(request.body, {
                 abortEarly: false,
-                strict: true,
+                strict: false,
             });
         } catch (error) {
             return response.status(400).json({
@@ -28,7 +34,13 @@ class PlayersController {
         }
 
         const name = request.body.name.trim();
-        const { position, is_goalkeeper, overall_rating } = request.body;
+
+        const {
+            position,
+            is_goalkeeper,
+            overall_rating,
+        } = request.body;
+
         const user_id = request.userId;
 
         const existingPlayer = await Player.findOne({
@@ -65,12 +77,11 @@ class PlayersController {
             name: player.name,
             position: player.position,
             is_goalkeeper: player.is_goalkeeper,
-            overall_rating: player.overall_rating
+            overall_rating: player.overall_rating,
         });
     }
 
     async index(request, response) {
-
         const players = await Player.findAll({
             where: {
                 user_id: request.userId,
@@ -82,14 +93,24 @@ class PlayersController {
     }
 
     async show(request, response) {
-
         const schema = Yup.object({
-            id: Yup.string().uuid().required(),
+            id: Yup.string()
+                .uuid()
+                .required(),
         });
 
-        const { id } = request.params;
+        try {
+            schema.validateSync(request.params, {
+                abortEarly: false,
+                strict: true,
+            });
+        } catch (error) {
+            return response.status(400).json({
+                error: error.errors,
+            });
+        }
 
-        await schema.validate(request.params);
+        const { id } = request.params;
 
         const player = await Player.findOne({
             where: {
@@ -108,25 +129,39 @@ class PlayersController {
     }
 
     async update(request, response) {
+        const paramsSchema = Yup.object({
+            id: Yup.string()
+                .uuid()
+                .required(),
+        });
 
-        const { id } = request.params;
+        const bodySchema = Yup.object({
+            name: Yup.string()
+                .trim()
+                .min(1),
 
-        const schema = Yup.object({
-            name: Yup.string(),
             position: Yup.string(),
+
             is_goalkeeper: Yup.boolean(),
         });
 
         try {
-            schema.validateSync(request.body, {
+            paramsSchema.validateSync(request.params, {
                 abortEarly: false,
                 strict: true,
+            });
+
+            bodySchema.validateSync(request.body, {
+                abortEarly: false,
+                strict: false,
             });
         } catch (error) {
             return response.status(400).json({
                 error: error.errors,
             });
         }
+
+        const { id } = request.params;
 
         const player = await Player.findOne({
             where: {
@@ -141,13 +176,16 @@ class PlayersController {
             });
         }
 
-        const updateData = {
-            ...request.body,
-        };
+        const {
+            name,
+            position,
+            is_goalkeeper,
+        } = request.body;
 
-        if (updateData.name !== undefined) {
+        const updateData = {};
 
-            updateData.name = updateData.name.trim();
+        if (name !== undefined) {
+            updateData.name = name.trim();
 
             const existingPlayer = await Player.findOne({
                 where: {
@@ -174,13 +212,21 @@ class PlayersController {
             }
         }
 
+        if (position !== undefined) {
+            updateData.position = position;
+        }
+
+        if (is_goalkeeper !== undefined) {
+            updateData.is_goalkeeper =
+                is_goalkeeper;
+        }
+
         await player.update(updateData);
 
         return response.status(200).json(player);
     }
 
     async delete(request, response) {
-
         const { id } = request.params;
 
         const player = await Player.findOne({
@@ -195,6 +241,7 @@ class PlayersController {
                 error: "Player not found",
             });
         }
+
         const playerInMatch = await MatchPlayers.findOne({
             where: {
                 player_id: player.id,

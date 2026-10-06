@@ -1,76 +1,185 @@
+
 import Player from "../Models/Player.js";
-import MatchPlayers from "../Models/MatchPlayers.js";
-import MatchTeams from "../Models/MatchTeams.js";
+import DrawPlayer from "../Models/DrawPlayer.js";
+import DrawTeam from "../Models/DrawTeam.js";
+import Draw from "../Models/Draw.js";
 import Database from "../../Database/index.js";
-import Matches from "../Models/Matches.js";
+import AppError from "../Errors/AppError.js";
 
 class MatchDrawService {
+    shufflePlayers(players) {
+        for (let index = players.length - 1; index > 0; index--) {
+            const randomIndex = Math.floor(
+                Math.random() * (index + 1)
+            );
+
+            [players[index], players[randomIndex]] = [
+                players[randomIndex],
+                players[index],
+            ];
+        }
+
+        return players;
+    }
+
+    sortPlayersByRating(players) {
+        const playersByRating = new Map();
+
+        for (const player of players) {
+            const rating = Number(player.overall_rating);
+
+            if (!playersByRating.has(rating)) {
+                playersByRating.set(rating, []);
+            }
+
+            playersByRating.get(rating).push(player);
+        }
+
+        const sortedRatings = [...playersByRating.keys()].sort(
+            (a, b) => b - a
+        );
+
+        const sortedPlayers = [];
+
+        for (const rating of sortedRatings) {
+            const playersWithSameRating = playersByRating.get(
+                rating
+            );
+
+            this.shufflePlayers(playersWithSameRating);
+
+            sortedPlayers.push(...playersWithSameRating);
+        }
+
+        return sortedPlayers;
+    }
 
     async draw(config) {
-
-        const transaction = await Database.connection.transaction();
+        const transaction =
+            await Database.connection.transaction();
 
         try {
-
-            await Matches.findByPk(config.match.id, {
+            const draw = await Draw.findByPk(config.draw.id, {
                 transaction,
                 lock: transaction.LOCK.UPDATE,
             });
-            
+
+            if (!draw) {
+                throw new AppError(
+                    "Player selection by draw is not possible at the moment."
+                );
+            }
+
+            if (
+                !Array.isArray(config.playerIds) ||
+                config.playerIds.length === 0
+            ) {
+                throw new AppError(
+                    "At least one player must be selected."
+                );
+            }
+
+            if (
+                new Set(config.playerIds).size !==
+                config.playerIds.length
+            ) {
+                throw new AppError(
+                    "Duplicate players were selected."
+                );
+            }
+
             const players = await Player.findAll({
                 where: {
-                    user_id: config.match.user_id
+                    user_id: draw.user_id,
+                    id: config.playerIds,
                 },
                 transaction,
             });
 
-            const matchPlayers = await MatchPlayers.findAll({
+            if (
+                players.length !== config.playerIds.length
+            ) {
+                throw new AppError(
+                    "One or more selected players were not found."
+                );
+            }
+
+            const drawPlayers = await DrawPlayer.findAll({
                 where: {
-                    match_id: config.match.id
+                    draw_id: draw.id,
                 },
                 include: [
                     {
                         model: Player,
-                        as: "player"
-                    }
+                        as: "player",
+                    },
                 ],
                 transaction,
             });
 
-            const availablePlayers = players.filter((player) => {
-                return !matchPlayers.some((matchPlayer) => {
-                    return matchPlayer.player_id === player.id;
-                });
-            });
+            const availablePlayers = players.filter(
+                (player) => {
+                    return !drawPlayers.some(
+                        (drawPlayer) => {
+                            return (
+                                drawPlayer.player_id ===
+                                player.id
+                            );
+                        }
+                    );
+                }
+            );
 
             const reservePerTeam = config.hasReserve
                 ? config.reservePerTeam
                 : 0;
 
-            const teams = await MatchTeams.findAll({
+            const teams = await DrawTeam.findAll({
                 where: {
-                    match_id: config.match.id
+                    draw_id: draw.id,
                 },
                 transaction,
             });
 
-            if (teams.length !== config.howManyTeams) {
-                throw new Error("The number of teams is invalid.");
+            if (
+                teams.length !== config.howManyTeams
+            ) {
+                throw new AppError(
+                    "The number of teams is invalid."
+                );
             }
 
             const teamScores = [];
 
             teams.map((team) => {
-                const playersInTeam = matchPlayers.filter((matchPlayer) => {
-                    return matchPlayer.team_id === team.id;
-                });
+                const playersInTeam = drawPlayers.filter(
+                    (drawPlayer) => {
+                        return (
+                            drawPlayer.team_id ===
+                            team.id
+                        );
+                    }
+                );
 
                 let sum = 0;
 
-                for (let index = 0; index < playersInTeam.length; index++) {
-                    const element = playersInTeam[index];
+                for (
+                    let index = 0;
+                    index < playersInTeam.length;
+                    index++
+                ) {
+                    const drawPlayer =
+                        playersInTeam[index];
 
-                    sum = sum + Number(element.player.overall_rating);
+                    const player = drawPlayer.player;
+
+                    if (player) {
+                        sum =
+                            sum +
+                            Number(
+                                player.overall_rating
+                            );
+                    }
                 }
 
                 let average;
@@ -78,163 +187,253 @@ class MatchDrawService {
                 if (playersInTeam.length === 0) {
                     average = 0;
                 } else {
-                    average = sum / playersInTeam.length;
+                    average =
+                        sum / playersInTeam.length;
                 }
 
-                const isLinePlayer = (matchPlayer) => {
+                const isLinePlayer = (drawPlayer) => {
                     return (
                         !config.considerGoalkeepers ||
-                        !matchPlayer.is_goalkeeper
+                        !drawPlayer.is_goalkeeper
                     );
                 };
 
-                const linePlayerCount = playersInTeam.filter((matchPlayer) => {
-                    return isLinePlayer(matchPlayer);
-                }).length;
+                const linePlayerCount =
+                    playersInTeam.filter(
+                        (drawPlayer) => {
+                            return isLinePlayer(
+                                drawPlayer
+                            );
+                        }
+                    ).length;
 
-                const starterCount = playersInTeam.filter((matchPlayer) => {
-                    return (
-                        isLinePlayer(matchPlayer) &&
-                        !matchPlayer.is_reserve
+                const starterCount =
+                    playersInTeam.filter(
+                        (drawPlayer) => {
+                            return (
+                                isLinePlayer(
+                                    drawPlayer
+                                ) &&
+                                !drawPlayer.is_reserve
+                            );
+                        }
+                    ).length;
+
+                const reserveCount =
+                    playersInTeam.filter(
+                        (drawPlayer) => {
+                            return (
+                                isLinePlayer(
+                                    drawPlayer
+                                ) &&
+                                drawPlayer.is_reserve
+                            );
+                        }
+                    ).length;
+
+                const hasGoalkeeper =
+                    playersInTeam.some(
+                        (drawPlayer) => {
+                            return (
+                                drawPlayer.is_goalkeeper
+                            );
+                        }
                     );
-                }).length;
-
-                const reserveCount = playersInTeam.filter((matchPlayer) => {
-                    return (
-                        isLinePlayer(matchPlayer) &&
-                        matchPlayer.is_reserve
-                    );
-                }).length;
-
-                const hasGoalkeeper = playersInTeam.some((matchPlayer) => {
-                    return matchPlayer.is_goalkeeper;
-                });
 
                 teamScores.push({
                     teamId: team.id,
                     score: average,
                     sum: sum,
-                    playerCount: playersInTeam.length,
-                    linePlayerCount: linePlayerCount,
-                    starterCount: starterCount,
-                    reserveCount: reserveCount,
-                    hasGoalkeeper: hasGoalkeeper,
+                    playerCount:
+                        playersInTeam.length,
+                    linePlayerCount:
+                        linePlayerCount,
+                    starterCount:
+                        starterCount,
+                    reserveCount:
+                        reserveCount,
+                    hasGoalkeeper:
+                        hasGoalkeeper,
                 });
             });
 
-            const availableGoalkeepers = availablePlayers.filter((player) => {
-                return player.is_goalkeeper;
-            });
+            const availableGoalkeepers =
+                availablePlayers.filter((player) => {
+                    return player.is_goalkeeper;
+                });
 
             let goalkeepersNeeded = [];
 
             if (config.considerGoalkeepers) {
-                goalkeepersNeeded = teamScores.filter((teamScore) => {
-                    return !teamScore.hasGoalkeeper;
-                });
+                goalkeepersNeeded =
+                    teamScores.filter((teamScore) => {
+                        return !teamScore.hasGoalkeeper;
+                    });
 
-                if (availableGoalkeepers.length < goalkeepersNeeded.length) {
-                    throw new Error("There aren't enough goalkeepers.");
+                if (
+                    availableGoalkeepers.length <
+                    goalkeepersNeeded.length
+                ) {
+                    throw new AppError(
+                        "There aren't enough goalkeepers."
+                    );
                 }
             }
 
-            const totalStarterSlots = teamScores.reduce((total, teamScore) => {
-                return total +
-                    (config.playersPerTeam - teamScore.starterCount);
-            }, 0);
+            const totalStarterSlots =
+                teamScores.reduce(
+                    (total, teamScore) => {
+                        return (
+                            total +
+                            (config.playersPerTeam -
+                                teamScore.starterCount)
+                        );
+                    },
+                    0
+                );
 
-            const totalReserveSlots = teamScores.reduce((total, teamScore) => {
-                return total +
-                    (reservePerTeam - teamScore.reserveCount);
-            }, 0);
+            const totalReserveSlots =
+                teamScores.reduce(
+                    (total, teamScore) => {
+                        return (
+                            total +
+                            (reservePerTeam -
+                                teamScore.reserveCount)
+                        );
+                    },
+                    0
+                );
 
             const totalLineSlots =
-                totalStarterSlots +
-                totalReserveSlots;
+                totalStarterSlots + totalReserveSlots;
 
-            if (availablePlayers.length < totalLineSlots) {
-                throw new Error("There aren't enough players.");
+            if (
+                availablePlayers.length <
+                totalLineSlots
+            ) {
+                throw new AppError(
+                    "There aren't enough players."
+                );
             }
 
-            if (totalLineSlots === 0 && goalkeepersNeeded.length === 0) {
-                throw new Error("There are no more roster spots for outfield players, and no more goalkeepers to add.")
+            if (
+                totalLineSlots === 0 &&
+                goalkeepersNeeded.length === 0
+            ) {
+                throw new AppError(
+                    "There are no more roster spots for outfield players, and no more goalkeepers to add."
+                );
             }
 
             let outfieldPlayers;
 
             if (config.considerGoalkeepers) {
-                outfieldPlayers = availablePlayers.filter((player) => {
-                    return !player.is_goalkeeper;
-                });
+                outfieldPlayers =
+                    availablePlayers.filter((player) => {
+                        return !player.is_goalkeeper;
+                    });
             } else {
                 outfieldPlayers = availablePlayers;
             }
 
-            if (outfieldPlayers.length < totalLineSlots) {
-                throw new Error("There aren't enough outfield players.");
+            if (
+                outfieldPlayers.length <
+                totalLineSlots
+            ) {
+                throw new AppError(
+                    "There aren't enough outfield players."
+                );
             }
 
-            outfieldPlayers.sort((a, b) => {
-                return b.overall_rating - a.overall_rating;
-            });
+            /*
+             * Mantém os jogadores com maior overall
+             * como prioridade.
+             *
+             * Quando dois ou mais jogadores possuem
+             * o mesmo overall, eles são embaralhados
+             * entre si para evitar um sorteio
+             * determinístico.
+             */
+            outfieldPlayers =
+                this.sortPlayersByRating(
+                    outfieldPlayers
+                );
 
-            for (let index = 0; index < totalLineSlots; index++) {
-                const element = outfieldPlayers[index];
+            for (
+                let index = 0;
+                index < totalLineSlots;
+                index++
+            ) {
+                const player = outfieldPlayers[index];
 
-                let availableTeams = teamScores.filter((teamScore) => {
-                    return (
-                        teamScore.starterCount <
-                        config.playersPerTeam
-                    );
-                });
+                let availableTeams =
+                    teamScores.filter((teamScore) => {
+                        return (
+                            teamScore.starterCount <
+                            config.playersPerTeam
+                        );
+                    });
 
                 let isStarter = true;
 
                 if (availableTeams.length === 0) {
-                    availableTeams = teamScores.filter((teamScore) => {
-                        return (
-                            teamScore.reserveCount <
-                            reservePerTeam
+                    availableTeams =
+                        teamScores.filter(
+                            (teamScore) => {
+                                return (
+                                    teamScore.reserveCount <
+                                    reservePerTeam
+                                );
+                            }
                         );
-                    });
 
                     isStarter = false;
                 }
 
-                const lowestScore = availableTeams.reduce(
-                    (smaller, current) => {
-                        if (
-                            current.score < smaller.score ||
-                            (
-                                current.score === smaller.score &&
-                                current.linePlayerCount <
-                                smaller.linePlayerCount
-                            )
-                        ) {
-                            return current;
-                        } else {
+                const lowestScore =
+                    availableTeams.reduce(
+                        (smaller, current) => {
+                            if (
+                                current.score <
+                                    smaller.score ||
+                                (current.score ===
+                                    smaller.score &&
+                                    current.linePlayerCount <
+                                        smaller.linePlayerCount)
+                            ) {
+                                return current;
+                            }
+
                             return smaller;
-                        }
-                    },
-                    availableTeams[0]
-                );
+                        },
+                        availableTeams[0]
+                    );
 
                 const team = teams.find((team) => {
-                    return team.id === lowestScore.teamId;
+                    return (
+                        team.id ===
+                        lowestScore.teamId
+                    );
                 });
 
-                await MatchPlayers.create({
-                    match_id: config.match.id,
-                    player_id: element.id,
-                    team_id: team.id,
-                    is_reserve: !isStarter,
-                    number: lowestScore.linePlayerCount + 2,
-                }, {
-                    transaction
-                });
+                await DrawPlayer.create(
+                    {
+                        draw_id: draw.id,
+                        player_id: player.id,
+                        team_id: team.id,
+                        is_reserve: !isStarter,
+                        number:
+                            lowestScore.linePlayerCount +
+                            2,
+                    },
+                    {
+                        transaction,
+                    }
+                );
 
                 lowestScore.sum =
-                    lowestScore.sum + Number(element.overall_rating);
+                    lowestScore.sum +
+                    Number(player.overall_rating);
 
                 lowestScore.playerCount =
                     lowestScore.playerCount + 1;
@@ -243,7 +442,8 @@ class MatchDrawService {
                     lowestScore.linePlayerCount + 1;
 
                 lowestScore.score =
-                    lowestScore.sum / lowestScore.playerCount;
+                    lowestScore.sum /
+                    lowestScore.playerCount;
 
                 if (isStarter) {
                     lowestScore.starterCount =
@@ -254,41 +454,74 @@ class MatchDrawService {
                 }
             }
 
-            for (let index = 0; index < goalkeepersNeeded.length; index++) {
-                const teamScore = goalkeepersNeeded[index];
+            for (
+                let index = 0;
+                index < goalkeepersNeeded.length;
+                index++
+            ) {
+                const teamScore =
+                    goalkeepersNeeded[index];
 
-                const goalkeeper = availableGoalkeepers[index];
+                const goalkeeper =
+                    availableGoalkeepers[index];
 
                 const team = teams.find((team) => {
-                    return team.id === teamScore.teamId;
+                    return (
+                        team.id ===
+                        teamScore.teamId
+                    );
                 });
 
-                await MatchPlayers.create({
-                    match_id: config.match.id,
-                    player_id: goalkeeper.id,
-                    is_goalkeeper: true,
-                    team_id: team.id,
-                    number: 1,
-                },
+                await DrawPlayer.create(
                     {
-                        transaction
-                    });
+                        draw_id: draw.id,
+                        player_id: goalkeeper.id,
+                        is_goalkeeper: true,
+                        team_id: team.id,
+                        number: 1,
+                    },
+                    {
+                        transaction,
+                    }
+                );
 
                 teamScore.sum =
-                    teamScore.sum + Number(goalkeeper.overall_rating);
+                    teamScore.sum +
+                    Number(
+                        goalkeeper.overall_rating
+                    );
 
                 teamScore.playerCount =
                     teamScore.playerCount + 1;
 
                 teamScore.score =
-                    teamScore.sum / teamScore.playerCount;
+                    teamScore.sum /
+                    teamScore.playerCount;
 
                 teamScore.hasGoalkeeper = true;
             }
 
-            const result = await MatchPlayers.findAll({
+            for (const teamScore of teamScores) {
+                const team = teams.find((team) => {
+                    return (
+                        team.id ===
+                        teamScore.teamId
+                    );
+                });
+
+                await team.update(
+                    {
+                        score: teamScore.score,
+                    },
+                    {
+                        transaction,
+                    }
+                );
+            }
+
+            const result = await DrawPlayer.findAll({
                 where: {
-                    match_id: config.match.id
+                    draw_id: draw.id,
                 },
                 transaction,
             });
@@ -296,11 +529,10 @@ class MatchDrawService {
             await transaction.commit();
 
             return result;
-
         } catch (error) {
             await transaction.rollback();
             throw error;
-        } 
+        }
     }
 }
 

@@ -1,9 +1,8 @@
-"use strict";
+const Sequelize = require("sequelize");
 
-/** @type {import('sequelize-cli').Migration} */
 module.exports = {
-    async up(queryInterface, Sequelize) {
-        await queryInterface.createTable("match_pauses", {
+    async up(queryInterface) {
+        await queryInterface.createTable("draw_teams", {
             id: {
                 type: Sequelize.UUID,
                 primaryKey: true,
@@ -11,46 +10,48 @@ module.exports = {
                 defaultValue: Sequelize.UUIDV4,
             },
 
-            game_id: {
+            draw_id: {
                 type: Sequelize.UUID,
                 allowNull: false,
                 references: {
-                    model: "match_games",
+                    model: "draws",
                     key: "id",
                 },
                 onUpdate: "CASCADE",
                 onDelete: "CASCADE",
             },
 
-            started_at: {
-                type: Sequelize.DATE,
+            name: {
+                type: Sequelize.STRING,
                 allowNull: false,
             },
 
-            finished_at: {
-                type: Sequelize.DATE,
-                allowNull: true,
+            team_number: {
+                type: Sequelize.INTEGER,
+                allowNull: false,
+            },
+
+            score: {
+                type: Sequelize.DECIMAL(3, 1),
+                allowNull: false,
+                defaultValue: 0,
             },
 
             created_at: {
                 allowNull: false,
                 type: Sequelize.DATE,
-                defaultValue: Sequelize.literal(
-                    "CURRENT_TIMESTAMP"
-                ),
+                defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
             },
 
             updated_at: {
                 allowNull: false,
                 type: Sequelize.DATE,
-                defaultValue: Sequelize.literal(
-                    "CURRENT_TIMESTAMP"
-                ),
+                defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
             },
         });
     },
 
     async down(queryInterface) {
-        await queryInterface.dropTable("match_pauses");
+        await queryInterface.dropTable("draw_teams");
     },
 };

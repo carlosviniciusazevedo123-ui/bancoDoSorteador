@@ -1,6 +1,6 @@
 import Sequelize, { Model } from "sequelize";
 
-class MatchPauses extends Model {
+class DrawTeam extends Model {
     static init(sequelize) {
         super.init(
             {
@@ -11,24 +11,30 @@ class MatchPauses extends Model {
                     defaultValue: Sequelize.UUIDV4,
                 },
 
-                game_id: {
+                draw_id: {
                     type: Sequelize.UUID,
                     allowNull: false,
                 },
 
-                started_at: {
-                    type: Sequelize.DATE,
+                name: {
+                    type: Sequelize.STRING,
                     allowNull: false,
                 },
 
-                finished_at: {
-                    type: Sequelize.DATE,
-                    allowNull: true,
+                team_number: {
+                    type: Sequelize.INTEGER,
+                    allowNull: false,
+                },
+
+                score: {
+                    type: Sequelize.DECIMAL(3, 1),
+                    allowNull: false,
+                    defaultValue: 0,
                 },
             },
             {
                 sequelize,
-                tableName: "match_pauses",
+                tableName: "draw_teams",
                 timestamps: true,
                 underscored: true,
             }
@@ -38,11 +44,16 @@ class MatchPauses extends Model {
     }
 
     static associate(models) {
-        this.belongsTo(models.MatchGames, {
-            foreignKey: "game_id",
-            as: "game",
+        this.belongsTo(models.Draw, {
+            foreignKey: "draw_id",
+            as: "draw",
+        });
+
+        this.hasMany(models.DrawPlayer, {
+            foreignKey: "team_id",
+            as: "players",
         });
     }
 }
 
-export default MatchPauses;
+export default DrawTeam;

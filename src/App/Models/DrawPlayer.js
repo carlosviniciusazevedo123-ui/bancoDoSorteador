@@ -1,6 +1,6 @@
 import Sequelize, { Model } from "sequelize";
 
-class MatchEvents extends Model {
+class DrawPlayer extends Model {
     static init(sequelize) {
         super.init(
             {
@@ -11,17 +11,7 @@ class MatchEvents extends Model {
                     defaultValue: Sequelize.UUIDV4,
                 },
 
-                match_id: {
-                    type: Sequelize.UUID,
-                    allowNull: false,
-                },
-
-                game_id: {
-                    type: Sequelize.UUID,
-                    allowNull: false,
-                },
-
-                player_id: {
+                draw_id: {
                     type: Sequelize.UUID,
                     allowNull: false,
                 },
@@ -31,26 +21,31 @@ class MatchEvents extends Model {
                     allowNull: false,
                 },
 
-                event_type: {
-                    type: Sequelize.ENUM(
-                        "goal",
-                        "assist",
-                        "yellow_card",
-                        "red_card",
-                        "substitution",
-                        "own_goal"
-                    ),
+                player_id: {
+                    type: Sequelize.UUID,
                     allowNull: false,
                 },
 
-                minute: {
+                number: {
                     type: Sequelize.INTEGER,
                     allowNull: false,
+                },
+
+                is_reserve: {
+                    type: Sequelize.BOOLEAN,
+                    allowNull: false,
+                    defaultValue: false,
+                },
+
+                is_goalkeeper: {
+                    type: Sequelize.BOOLEAN,
+                    allowNull: false,
+                    defaultValue: false,
                 },
             },
             {
                 sequelize,
-                tableName: "match_events",
+                tableName: "draw_players",
                 timestamps: true,
                 underscored: true,
             }
@@ -60,26 +55,21 @@ class MatchEvents extends Model {
     }
 
     static associate(models) {
-        this.belongsTo(models.Matches, {
-            foreignKey: "match_id",
-            as: "match",
+        this.belongsTo(models.Draw, {
+            foreignKey: "draw_id",
+            as: "draw",
         });
 
-        this.belongsTo(models.MatchGames, {
-            foreignKey: "game_id",
-            as: "game",
+        this.belongsTo(models.DrawTeam, {
+            foreignKey: "team_id",
+            as: "team",
         });
 
         this.belongsTo(models.Player, {
             foreignKey: "player_id",
             as: "player",
         });
-
-        this.belongsTo(models.MatchTeams, {
-            foreignKey: "team_id",
-            as: "team",
-        });
     }
 }
 
-export default MatchEvents;
+export default DrawPlayer;

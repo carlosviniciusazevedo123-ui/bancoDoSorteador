@@ -70,47 +70,51 @@ class Player extends Model {
     }
 
     static associate(models) {
-        this.belongsTo(models.User, {
-            foreignKey: "user_id",
-            as: "user"
-        });
+    this.belongsTo(models.User, {
+        foreignKey: "user_id",
+        as: "user"
+    });
 
-        this.hasMany(models.MatchPlayers, {
-            foreignKey: "player_id",
-            as: "matches"
-        });
+    this.hasMany(models.MatchPlayers, {
+        foreignKey: "player_id",
+        as: "matches"
+    });
 
-        this.hasMany(models.MatchEvents, {
-            foreignKey: "player_id",
-            as: "events"
-        });
+    this.hasMany(models.MatchEvents, {
+        foreignKey: "player_id",
+        as: "events"
+    });
 
-        this.hasMany(models.MatchEvaluations, {
-            foreignKey: "evaluator_player_id",
-            as: "evaluationsGiven"
-        });
+    this.hasMany(models.MatchEvaluations, {
+        foreignKey: "evaluator_player_id",
+        as: "evaluationsGiven"
+    });
 
-        this.hasMany(models.MatchEvaluations, {
-            foreignKey: "evaluated_player_id",
-            as: "evaluationsReceived"
-        });
+    this.hasMany(models.MatchEvaluations, {
+        foreignKey: "evaluated_player_id",
+        as: "evaluationsReceived"
+    });
 
-        this.hasMany(models.PlayerEvaluations, {
-            foreignKey: "evaluator_id",
-            as: "attributeEvaluationsGiven"
-        });
+    this.hasMany(models.PlayerEvaluations, {
+        foreignKey: "evaluator_id",
+        as: "attributeEvaluationsGiven"
+    });
 
-        this.hasMany(models.PlayerEvaluations, {
-            foreignKey: "evaluated_player_id",
-            as: "attributeEvaluationsReceived"
-        });
+    this.hasMany(models.PlayerEvaluations, {
+        foreignKey: "evaluated_player_id",
+        as: "attributeEvaluationsReceived"
+    });
 
-        this.hasMany(models.MatchEvaluatorSession, {
-            foreignKey: "player_id",
-            as: "sessions"
-        })
+    this.hasMany(models.MatchEvaluatorSession, {
+        foreignKey: "player_id",
+        as: "sessions"
+    });
 
-    }
+    this.hasMany(models.DrawPlayer, {
+        foreignKey: "player_id",
+        as: "drawPlayers",
+    });
+}
 }
 
 export default Player;

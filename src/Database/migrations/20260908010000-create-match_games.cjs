@@ -1,10 +1,10 @@
-
 "use strict";
 
 /** @type {import('sequelize-cli').Migration} */
+
 module.exports = {
     async up(queryInterface, Sequelize) {
-        await queryInterface.createTable("match_players", {
+        await queryInterface.createTable("match_games", {
             id: {
                 primaryKey: true,
                 allowNull: false,
@@ -23,7 +23,7 @@ module.exports = {
                 onDelete: "CASCADE",
             },
 
-            team_id: {
+            team_a_id: {
                 type: Sequelize.UUID,
                 allowNull: false,
                 references: {
@@ -34,65 +34,78 @@ module.exports = {
                 onDelete: "CASCADE",
             },
 
-            player_id: {
+            team_b_id: {
                 type: Sequelize.UUID,
                 allowNull: false,
                 references: {
-                    model: "players",
+                    model: "match_teams",
                     key: "id",
                 },
                 onUpdate: "CASCADE",
                 onDelete: "CASCADE",
             },
 
-            player_name: {
-                type: Sequelize.STRING,
-                allowNull: false,
-            },
-
-            overall_rating: {
-                type: Sequelize.DECIMAL(3, 1),
-                allowNull: false,
-            },
-
-            number: {
+            round: {
                 type: Sequelize.INTEGER,
                 allowNull: false,
             },
 
-            is_reserve: {
-                type: Sequelize.BOOLEAN,
-                allowNull: false,
-                defaultValue: false,
-            },
-
-            is_goalkeeper: {
-                type: Sequelize.BOOLEAN,
-                allowNull: false,
-                defaultValue: false,
-            },
-
-            minutes_player: {
+            duration: {
                 type: Sequelize.INTEGER,
                 allowNull: false,
-                defaultValue: 0,
+            },
+
+            status: {
+                type: Sequelize.ENUM(
+                    "pending",
+                    "in_progress",
+                    "paused",
+                    "finished"
+                ),
+                allowNull: false,
+                defaultValue: "pending",
+            },
+
+            winner_team_id: {
+                type: Sequelize.UUID,
+                allowNull: true,
+                references: {
+                    model: "match_teams",
+                    key: "id",
+                },
+                onUpdate: "CASCADE",
+                onDelete: "SET NULL",
+            },
+
+            started_at: {
+                type: Sequelize.DATE,
+                allowNull: true,
+            },
+
+            finished_at: {
+                type: Sequelize.DATE,
+                allowNull: true,
             },
 
             created_at: {
                 allowNull: false,
                 type: Sequelize.DATE,
-                defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
+                defaultValue: Sequelize.literal(
+                    "CURRENT_TIMESTAMP"
+                ),
             },
 
             updated_at: {
                 allowNull: false,
                 type: Sequelize.DATE,
-                defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
+                defaultValue: Sequelize.literal(
+                    "CURRENT_TIMESTAMP"
+                ),
             },
         });
     },
 
     async down(queryInterface) {
-        await queryInterface.dropTable("match_players");
+        await queryInterface.dropTable("match_games");
     },
 };

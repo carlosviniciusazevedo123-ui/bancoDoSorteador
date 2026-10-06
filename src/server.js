@@ -1,24 +1,19 @@
 import app from './app.js';
-import './Database/index.js'
-import MatchExpirationService from './App/Services/MatchExpirationService.js';
+import './Database/index.js';
 import EvaluationExpirationService from './App/Services/EvaluationExpirationService.js';
+import MatchGameExpirationService from "./App/Services/MatchGameExpirationService.js";
 
 app.listen(3001, () => {
-    console.log('Server is running on port 3001')
+    console.log('Server is running on port 3001');
 });
 
-
 setInterval(async () => {
-
     try {
-
-        await MatchExpirationService.checkMatches();
+        await MatchGameExpirationService.checkGames();
         await EvaluationExpirationService.checkEvaluations();
-
     } catch (error) {
-
         console.error(
-            'Error checking matches:',
+            "Error checking services:",
             error
         );
     }
