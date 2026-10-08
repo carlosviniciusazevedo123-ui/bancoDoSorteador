@@ -226,6 +226,13 @@ class MatchEventsController {
                     });
                 }
 
+                if (event_type === "goal" && matchPlayer.is_reserve) {
+                    await transaction.rollback();
+                    return response.status(400).json({
+                        error: "A reserve player cannot score a goal while off the field.",
+                    });
+                }
+
                 const expelled = await MatchEvents.findOne({
                     where: {
                         player_id,

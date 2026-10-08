@@ -24,7 +24,11 @@ app.use((request, response) => {
 });
 
 app.use((error, request, response, next) => {
-    console.error(error);
+    if (error.type === "entity.parse.failed" && error.status === 400) {
+        return response.status(400).json({
+            error: "Malformed JSON body",
+        });
+    }
 
     if (error instanceof Yup.ValidationError) {
         return response.status(400).json({
@@ -33,11 +37,15 @@ app.use((error, request, response, next) => {
     }
 
     if (error instanceof AppError) {
+        if (error.statusCode >= 500) {
+            console.error(error);
+        }
         return response.status(error.statusCode).json({
             error: error.message,
         });
     }
 
+    console.error(error);
     return response.status(500).json({
         error: "Internal server error",
     });

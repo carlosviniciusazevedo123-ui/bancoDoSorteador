@@ -1,326 +1,80 @@
-
-import {
-    describe,
-    it,
-    expect,
-    beforeEach,
-    afterEach,
-    vi,
-} from "vitest";
-
-import MatchDrawService from "../src/App/Services/MatchDrawService.js";
-import Player from "../src/App/Models/Player.js";
-import Matches from "../src/App/Models/Matches.js";
-import MatchTeams from "../src/App/Models/MatchTeams.js";
-import MatchPlayers from "../src/App/Models/MatchPlayers.js";
-
-import "../src/Database/index.js";
-
-describe("MatchDrawService", () => {
-    const userId = "a8bbc2a4-bde6-49e2-aded-d69555a0f9ef";
-
-    let createdPlayers = [];
-    let createdMatches = [];
-    let playerFindAllSpy = null;
-
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import service from '../src/App/Services/MatchDrawService.js';
+import Database from '../src/Database/index.js';
+import Player from '../src/App/Models/Player.js';
+import Draw from '../src/App/Models/Draw.js';
+import DrawTeam from '../src/App/Models/DrawTeam.js';
+import DrawPlayer from '../src/App/Models/DrawPlayer.js';
+describe('Draw roster and transaction rules', () => {
+    let transaction, config, players, roster, teams;
     beforeEach(() => {
-        createdPlayers = [];
-        createdMatches = [];
-        playerFindAllSpy = null;
+        transaction = { LOCK: { UPDATE: 'UPDATE' }, commit: vi.fn(), rollback: vi.fn() };
+        Database.connection.transaction.mockResolvedValue(transaction);
+        players = [9, 8, 7, 6].map((rating, i) => ({ id: `p${i}`, overall_rating: rating, is_goalkeeper: false }));
+        roster = [];
+        teams = ['a', 'b'].map(id => ({ id, update: vi.fn() }));
+        config = { draw: { id: 'draw' }, playerIds: players.map(p => p.id), howManyTeams: 2, playersPerTeam: 2, hasReserve: false, considerGoalkeepers: false };
+        vi.spyOn(Draw, 'findByPk').mockResolvedValue({ id: 'draw', user_id: 'owner' });
+        vi.spyOn(Player, 'findAll').mockImplementation(async () => players);
+        vi.spyOn(DrawTeam, 'findAll').mockResolvedValue(teams);
+        vi.spyOn(DrawPlayer, 'findAll').mockImplementation(async () => [...roster]);
+        vi.spyOn(DrawPlayer, 'create').mockImplementation(async row => { roster.push(row); return row; });
     });
-
-    afterEach(async () => {
-        if (playerFindAllSpy) {
-            playerFindAllSpy.mockRestore();
-            playerFindAllSpy = null;
-        }
-
-        await MatchPlayers.destroy({
-            where: {
-                match_id: createdMatches.map((match) => match.id),
-            },
-        });
-
-        await MatchTeams.destroy({
-            where: {
-                match_id: createdMatches.map((match) => match.id),
-            },
-        });
-
-        await Matches.destroy({
-            where: {
-                id: createdMatches.map((match) => match.id),
-            },
-        });
-
-        await Player.destroy({
-            where: {
-                id: createdPlayers.map((player) => player.id),
-            },
-        });
+    it.each([[[], 'At least one player must be selected.'], [['p0', 'p0'], 'Duplicate players were selected.'], [['missing'], 'One or more selected players were not found.']])('rejects invalid selection %j', async (ids, message) => {
+        config.playerIds = ids;
+        await expect(service.draw(config)).rejects.toThrow(message);
+        expect(DrawPlayer.create).not.toHaveBeenCalled();
+        expect(transaction.rollback).toHaveBeenCalledOnce();
+        expect(transaction.commit).not.toHaveBeenCalled();
     });
-
-    async function createPlayer({
-        name,
-        overall_rating,
-        is_goalkeeper = false,
-    }) {
-        const player = await Player.create({
-            user_id: userId,
-            name,
-            overall_rating,
-            is_goalkeeper,
-        });
-
-        createdPlayers.push(player);
-
-        return player;
-    }
-
-    async function createMatchWithTeams(numberOfTeams = 2) {
-        const match = await Matches.create({
-            user_id: userId,
-            name: "Teste",
-            how_many_teams: numberOfTeams,
-            players_per_team: 1,
-            has_reserve: false,
-            reserve_per_team: 0,
-            consider_goalkeepers: false,
-            duration: 60,
-        });
-
-        createdMatches.push(match);
-
-        const teams = [];
-
-        for (let index = 0; index < numberOfTeams; index++) {
-            const team = await MatchTeams.create({
-                match_id: match.id,
-                name: `Time ${index + 1}`,
-                team_number: index + 1,
-            });
-
-            teams.push(team);
-        }
-
-        return {
-            match,
-            teams,
-        };
-    }
-
-    function mockPlayersForThisTest() {
-        playerFindAllSpy = vi
-            .spyOn(Player, "findAll")
-            .mockResolvedValue(createdPlayers);
-    }
-
-    it("should prevent the draw when there are not enough goalkeepers", async () => {
-        const { match } = await createMatchWithTeams(2);
-
-        await createPlayer({
-            name: "Jogador 1",
-            overall_rating: 80,
-            is_goalkeeper: false,
-        });
-
-        await createPlayer({
-            name: "Jogador 2",
-            overall_rating: 75,
-            is_goalkeeper: false,
-        });
-
-        await createPlayer({
-            name: "Goleiro 1",
-            overall_rating: 80,
-            is_goalkeeper: true,
-        });
-
-        mockPlayersForThisTest();
-
-        const config = {
-            match,
-            howManyTeams: 2,
-            playersPerTeam: 1,
-            hasReserve: false,
-            reservePerTeam: 0,
-            considerGoalkeepers: true,
-        };
-
-        await expect(
-            MatchDrawService.draw(config)
-        ).rejects.toThrow("There aren't enough goalkeepers.");
-    });
-
-    it("should prevent the draw when there are not enough players", async () => {
-        const { match } = await createMatchWithTeams(2);
-
-        await createPlayer({
-            name: "Jogador 1",
-            overall_rating: 80,
-        });
-
-        await createPlayer({
-            name: "Jogador 2",
-            overall_rating: 70,
-        });
-
-        mockPlayersForThisTest();
-
-        const config = {
-            match,
-            howManyTeams: 2,
-            playersPerTeam: 2,
-            hasReserve: false,
-            reservePerTeam: 0,
-            considerGoalkeepers: false,
-        };
-
-        await expect(
-            MatchDrawService.draw(config)
-        ).rejects.toThrow("There aren't enough players.");
-    });
-
-    it("should draw teams successfully", async () => {
-        const { match } = await createMatchWithTeams(2);
-
-        await createPlayer({
-            name: "Jogador 1",
-            overall_rating: 90,
-        });
-
-        await createPlayer({
-            name: "Jogador 2",
-            overall_rating: 80,
-        });
-
-        mockPlayersForThisTest();
-
-        const config = {
-            match,
-            howManyTeams: 2,
-            playersPerTeam: 1,
-            hasReserve: false,
-            reservePerTeam: 0,
-            considerGoalkeepers: false,
-        };
-
-        const result = await MatchDrawService.draw(config);
-
-        expect(result).toHaveLength(2);
-
-        expect(
-            result.every((matchPlayer) => {
-                return matchPlayer.match_id === match.id;
-            })
-        ).toBe(true);
-    });
-
-    it("should prevent another draw when no players are available", async () => {
-        const { match, teams } = await createMatchWithTeams(2);
-
-        const player1 = await createPlayer({
-            name: "Jogador 1",
-            overall_rating: 90,
-        });
-
-        const player2 = await createPlayer({
-            name: "Jogador 2",
-            overall_rating: 80,
-        });
-
-        await MatchPlayers.create({
-            match_id: match.id,
-            player_id: player1.id,
-            team_id: teams[0].id,
-            is_reserve: false,
-            number: 2,
-        });
-
-        await MatchPlayers.create({
-            match_id: match.id,
-            player_id: player2.id,
-            team_id: teams[1].id,
-            is_reserve: false,
-            number: 2,
-        });
-
-        mockPlayersForThisTest();
-
-        const config = {
-            match,
-            howManyTeams: 2,
-            playersPerTeam: 1,
-            hasReserve: false,
-            reservePerTeam: 0,
-            considerGoalkeepers: false,
-        };
-
-        await expect(
-            MatchDrawService.draw(config)
-        ).rejects.toThrow(
-            "There are no more roster spots for outfield players, and no more goalkeepers to add."
-        );
-    });
-
-    it("should fill reserve slots in a second draw", async () => {
-        const { match, teams } = await createMatchWithTeams(2);
-
-        const player1 = await createPlayer({
-            name: "Jogador 1",
-            overall_rating: 90,
-        });
-
-        const player2 = await createPlayer({
-            name: "Jogador 2",
-            overall_rating: 80,
-        });
-
-        await createPlayer({
-            name: "Jogador 3",
-            overall_rating: 70,
-        });
-
-        await createPlayer({
-            name: "Jogador 4",
-            overall_rating: 60,
-        });
-
-        await MatchPlayers.create({
-            match_id: match.id,
-            player_id: player1.id,
-            team_id: teams[0].id,
-            is_reserve: false,
-            number: 2,
-        });
-
-        await MatchPlayers.create({
-            match_id: match.id,
-            player_id: player2.id,
-            team_id: teams[1].id,
-            is_reserve: false,
-            number: 2,
-        });
-
-        mockPlayersForThisTest();
-
-        const config = {
-            match,
-            howManyTeams: 2,
-            playersPerTeam: 1,
-            hasReserve: true,
-            reservePerTeam: 1,
-            considerGoalkeepers: false,
-        };
-
-        const result = await MatchDrawService.draw(config);
-
+    it('fills teams, balances ratings, and scopes players to the owner', async () => {
+        const result = await service.draw(config);
         expect(result).toHaveLength(4);
-
-        const reserves = result.filter((matchPlayer) => {
-            return matchPlayer.is_reserve;
-        });
-
-        expect(reserves).toHaveLength(2);
+        expect(new Set(result.map(p => p.player_id)).size).toBe(4);
+        for (const team of teams) {
+            expect(result.filter(p => p.team_id === team.id)).toHaveLength(2);
+            expect(team.update).toHaveBeenCalledWith({ score: 7.5 }, { transaction });
+        }
+        expect(Player.findAll).toHaveBeenCalledWith({ where: { user_id: 'owner', id: config.playerIds }, transaction });
+        expect(transaction.commit).toHaveBeenCalledOnce();
+    });
+    it('requires enough players', async () => {
+        players = players.slice(0, 1); config.playerIds = ['p0'];
+        await expect(service.draw(config)).rejects.toThrow("There aren't enough players.");
+        expect(DrawPlayer.create).not.toHaveBeenCalled();
+    });
+    it('requires one goalkeeper per team', async () => {
+        config.considerGoalkeepers = true;
+        await expect(service.draw(config)).rejects.toThrow("There aren't enough goalkeepers.");
+    });
+    it('assigns goalkeepers separately from outfield slots', async () => {
+        players.push(...['g1', 'g2'].map(id => ({ id, is_goalkeeper: true, overall_rating: 7 })));
+        config.playerIds = players.map(p => p.id); config.considerGoalkeepers = true;
+        const result = await service.draw(config);
+        for (const team of teams) {
+            const members = result.filter(p => p.team_id === team.id);
+            expect(members).toHaveLength(3);
+            expect(members.filter(p => p.is_goalkeeper)).toHaveLength(1);
+            expect(members.find(p => p.is_goalkeeper).number).toBe(1);
+        }
+    });
+    it('fills only reserve slots in a second draw', async () => {
+        roster = teams.map((team, i) => ({ team_id: team.id, player_id: players[i].id, player: players[i], is_reserve: false }));
+        config.playersPerTeam = 1; config.hasReserve = true; config.reservePerTeam = 1;
+        const result = await service.draw(config);
+        expect(result).toHaveLength(4);
+        expect(result.filter(p => p.is_reserve)).toHaveLength(2);
+        expect(new Set(result.map(p => p.player_id)).size).toBe(4);
+    });
+    it('rejects draws when all slots are filled', async () => {
+        roster = players.map((p, i) => ({ player_id: p.id, team_id: teams[i % 2].id, player: p, is_reserve: false }));
+        await expect(service.draw(config)).rejects.toThrow('There are no more roster spots');
+        expect(DrawPlayer.create).not.toHaveBeenCalled();
+    });
+    it('rolls back a persistence failure', async () => {
+        DrawPlayer.create.mockRejectedValue(new Error('write failed'));
+        await expect(service.draw(config)).rejects.toThrow('write failed');
+        expect(transaction.rollback).toHaveBeenCalledOnce();
+        expect(transaction.commit).not.toHaveBeenCalled();
     });
 });

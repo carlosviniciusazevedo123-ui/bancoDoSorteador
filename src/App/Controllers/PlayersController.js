@@ -7,6 +7,9 @@ class PlayersController {
     async store(request, response) {
         const schema = Yup.object({
             name: Yup.string()
+                .transform((value, originalValue) =>
+                    typeof originalValue === "string" ? value : originalValue
+                )
                 .trim()
                 .min(1)
                 .required(),
@@ -22,8 +25,9 @@ class PlayersController {
                 .required(),
         });
 
+        let validatedBody;
         try {
-            schema.validateSync(request.body, {
+            validatedBody = schema.validateSync(request.body, {
                 abortEarly: false,
                 strict: false,
             });
@@ -33,13 +37,13 @@ class PlayersController {
             });
         }
 
-        const name = request.body.name.trim();
+        const name = validatedBody.name;
 
         const {
             position,
             is_goalkeeper,
             overall_rating,
-        } = request.body;
+        } = validatedBody;
 
         const user_id = request.userId;
 
@@ -137,6 +141,9 @@ class PlayersController {
 
         const bodySchema = Yup.object({
             name: Yup.string()
+                .transform((value, originalValue) =>
+                    typeof originalValue === "string" ? value : originalValue
+                )
                 .trim()
                 .min(1),
 
@@ -145,13 +152,14 @@ class PlayersController {
             is_goalkeeper: Yup.boolean(),
         });
 
+        let validatedBody;
         try {
             paramsSchema.validateSync(request.params, {
                 abortEarly: false,
                 strict: true,
             });
 
-            bodySchema.validateSync(request.body, {
+            validatedBody = bodySchema.validateSync(request.body, {
                 abortEarly: false,
                 strict: false,
             });
@@ -180,12 +188,12 @@ class PlayersController {
             name,
             position,
             is_goalkeeper,
-        } = request.body;
+        } = validatedBody;
 
         const updateData = {};
 
         if (name !== undefined) {
-            updateData.name = name.trim();
+            updateData.name = name;
 
             const existingPlayer = await Player.findOne({
                 where: {

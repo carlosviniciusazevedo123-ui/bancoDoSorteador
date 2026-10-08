@@ -71,6 +71,8 @@ class MatchPlayersController {
             match_id,
             team_id,
             player_id,
+            player_name: player.name,
+            overall_rating: player.overall_rating,
             number,
             is_reserve,
             is_goalkeeper,
