@@ -1,14 +1,15 @@
 import * as Yup from "yup";
-
 import Matches from "../Models/Matches.js";
 import MatchCreateService from "../Services/MatchCreateService.js";
 
 class MatchesController {
     async store(request, response, next) {
         const schema = Yup.object({
-            draw_id: Yup.string()
-                .uuid()
-                .required(),
+            draw_id: Yup.string().uuid().required(),
+            draw_team_a_id: Yup.string().uuid().required(),
+            draw_team_b_id: Yup.string().uuid().required(),
+            round: Yup.number().integer().positive().required(),
+            duration: Yup.number().integer().positive().required(),
         });
 
         try {
@@ -22,13 +23,15 @@ class MatchesController {
             });
         }
 
-        const { draw_id } = request.body;
-
         try {
             const match =
                 await MatchCreateService.create({
-                    drawId: draw_id,
                     userId: request.userId,
+                    drawId: request.body.draw_id,
+                    drawTeamAId: request.body.draw_team_a_id,
+                    drawTeamBId: request.body.draw_team_b_id,
+                    round: request.body.round,
+                    duration: request.body.duration,
                 });
 
             return response.status(201).json(match);

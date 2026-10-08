@@ -1,21 +1,30 @@
-import Matches from "../Models/Matches.js";
-import MatchTeams from "../Models/MatchTeams.js";
-import MatchPlayers from "../Models/MatchPlayers.js";
-
+import Database from "../../Database/index.js";
 import Draw from "../Models/Draw.js";
 import DrawTeam from "../Models/DrawTeam.js";
 import DrawPlayer from "../Models/DrawPlayer.js";
+import Matches from "../Models/Matches.js";
+import MatchTeams from "../Models/MatchTeams.js";
+import MatchPlayers from "../Models/MatchPlayers.js";
+import MatchGames from "../Models/MatchGames.js";
 import Player from "../Models/Player.js";
-
-import Database from "../../Database/index.js";
 import AppError from "../Errors/AppError.js";
 
 class MatchCreateService {
-    async create({ drawId, userId }) {
-        const transaction =
-            await Database.connection.transaction();
+    async create({
+        userId,
+        drawId,
+        drawTeamAId,
+        drawTeamBId,
+        round,
+        duration,
+    }) {
+        const transaction = await Database.connection.transaction();
 
         try {
+            if (drawTeamAId === drawTeamBId) {
+                throw new AppError("A team cannot play against itself.");
+            }
+
             const draw = await Draw.findOne({
                 where: {
                     id: drawId,
@@ -32,18 +41,22 @@ class MatchCreateService {
             const drawTeams = await DrawTeam.findAll({
                 where: {
                     draw_id: draw.id,
+                    id: [drawTeamAId, drawTeamBId],
                 },
                 order: [["team_number", "ASC"]],
                 transaction,
             });
 
-            if (drawTeams.length === 0) {
-                throw new AppError("Draw has no teams.", 400);
+            if (drawTeams.length !== 2) {
+                throw new AppError(
+                    "Both selected teams must belong to this draw."
+                );
             }
 
             const drawPlayers = await DrawPlayer.findAll({
                 where: {
                     draw_id: draw.id,
+                    team_id: drawTeams.map((team) => team.id),
                 },
                 include: [
                     {
@@ -54,17 +67,9 @@ class MatchCreateService {
                 transaction,
             });
 
-            if (drawPlayers.length === 0) {
-                throw new AppError("Draw has no players.", 400);
-            }
-
             const match = await Matches.create(
-                {
-                    user_id: userId,
-                },
-                {
-                    transaction,
-                }
+                { user_id: userId },
+                { transaction }
             );
 
             const matchTeams = [];
@@ -77,78 +82,75 @@ class MatchCreateService {
                         team_number: drawTeam.team_number,
                         score: drawTeam.score,
                     },
-                    {
-                        transaction,
-                    }
+                    { transaction }
                 );
 
-                matchTeams.push({
-                    drawTeam,
-                    matchTeam,
-                });
+                matchTeams.push({ drawTeam, matchTeam });
             }
 
             for (const drawPlayer of drawPlayers) {
                 if (!drawPlayer.player) {
                     throw new AppError(
-                        "One or more players from the draw were not found.",
-                        400
+                        "One or more players from the draw were not found."
                     );
                 }
 
                 const matchTeam = matchTeams.find(
-                    ({ drawTeam }) =>
-                        drawTeam.id === drawPlayer.team_id
-                );
+                    ({ drawTeam }) => drawTeam.id === drawPlayer.team_id
+                )?.matchTeam;
 
                 if (!matchTeam) {
                     throw new AppError(
-                        "One or more players from the draw have an invalid team.",
-                        400
+                        "A selected player has an invalid team."
                     );
                 }
 
                 await MatchPlayers.create(
                     {
                         match_id: match.id,
-                        team_id: matchTeam.matchTeam.id,
+                        team_id: matchTeam.id,
                         player_id: drawPlayer.player_id,
                         player_name: drawPlayer.player.name,
-                        overall_rating:
-                            drawPlayer.player.overall_rating,
+                        overall_rating: drawPlayer.player.overall_rating,
                         number: drawPlayer.number,
                         is_reserve: drawPlayer.is_reserve,
-                        is_goalkeeper:
-                            drawPlayer.is_goalkeeper,
+                        is_goalkeeper: drawPlayer.is_goalkeeper,
                         minutes_player: 0,
                     },
-                    {
-                        transaction,
-                    }
+                    { transaction }
                 );
             }
 
-            const result = await Matches.findOne({
-                where: {
-                    id: match.id,
+            const matchTeamA = matchTeams.find(
+                ({ drawTeam }) => drawTeam.id === drawTeamAId
+            ).matchTeam;
+            const matchTeamB = matchTeams.find(
+                ({ drawTeam }) => drawTeam.id === drawTeamBId
+            ).matchTeam;
+
+            await MatchGames.create(
+                {
+                    match_id: match.id,
+                    team_a_id: matchTeamA.id,
+                    team_b_id: matchTeamB.id,
+                    round,
+                    duration,
                 },
+                { transaction }
+            );
+
+            const result = await Matches.findByPk(match.id, {
                 include: [
                     {
-                        model: MatchTeams,
-                        as: "teams",
-                        include: [
-                            {
-                                model: MatchPlayers,
-                                as: "players",
-                            },
-                        ],
+                        association: "teams",
+                        include: [{ association: "players" }],
                     },
+                    { association: "games" },
                 ],
                 transaction,
             });
 
             await transaction.commit();
-
             return result;
         } catch (error) {
             await transaction.rollback();

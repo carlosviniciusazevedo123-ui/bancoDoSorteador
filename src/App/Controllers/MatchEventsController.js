@@ -15,7 +15,6 @@ class MatchEventsController {
         });
 
         const bodySchema = Yup.object({
-            player_id: Yup.string().uuid().required(),
             team_id: Yup.string().uuid().required(),
             event_type: Yup.string()
                 .oneOf([
@@ -27,6 +26,27 @@ class MatchEventsController {
                     "own_goal",
                 ])
                 .required(),
+            player_id: Yup.string()
+                .uuid()
+                .when("event_type", {
+                    is: "substitution",
+                    then: (schema) => schema.notRequired(),
+                    otherwise: (schema) => schema.required(),
+                }),
+            player_out_id: Yup.string()
+                .uuid()
+                .when("event_type", {
+                    is: "substitution",
+                    then: (schema) => schema.required(),
+                    otherwise: (schema) => schema.notRequired(),
+                }),
+            player_in_id: Yup.string()
+                .uuid()
+                .when("event_type", {
+                    is: "substitution",
+                    then: (schema) => schema.required(),
+                    otherwise: (schema) => schema.notRequired(),
+                }),
         });
 
         try {
@@ -34,7 +54,6 @@ class MatchEventsController {
                 abortEarly: false,
                 strict: true,
             });
-
             bodySchema.validateSync(request.body, {
                 abortEarly: false,
                 strict: true,
@@ -46,113 +65,216 @@ class MatchEventsController {
         }
 
         const { match_id, game_id } = request.params;
-
         const {
-            player_id,
             team_id,
             event_type,
+            player_id,
+            player_out_id,
+            player_in_id,
         } = request.body;
 
-        const match = await Matches.findOne({
-            where: {
-                id: match_id,
-                user_id: request.userId,
-            },
-        });
+        const transaction = await MatchEvents.sequelize.transaction();
 
-        if (!match) {
-            return response.status(404).json({
-                error: "Match not found",
+        try {
+            const match = await Matches.findOne({
+                where: {
+                    id: match_id,
+                    user_id: request.userId,
+                },
+                transaction,
             });
-        }
 
-        if (match.status !== "in_progress") {
-            return response.status(400).json({
-                error: "The match is not underway.",
+            if (!match) {
+                await transaction.rollback();
+                return response.status(404).json({
+                    error: "Match not found",
+                });
+            }
+
+            if (match.status !== "in_progress") {
+                await transaction.rollback();
+                return response.status(400).json({
+                    error: "The match is not underway.",
+                });
+            }
+
+            const game = await MatchGames.findOne({
+                where: {
+                    id: game_id,
+                    match_id: match.id,
+                },
+                transaction,
+                lock: transaction.LOCK.UPDATE,
             });
-        }
 
-        const game = await MatchGames.findOne({
-            where: {
-                id: game_id,
-                match_id: match.id,
-            },
-        });
+            if (!game) {
+                await transaction.rollback();
+                return response.status(404).json({
+                    error: "Game not found in this match",
+                });
+            }
 
-        if (!game) {
-            return response.status(404).json({
-                error: "Game not found in this match",
+            if (game.status !== "in_progress") {
+                await transaction.rollback();
+                return response.status(400).json({
+                    error: "The game is not underway.",
+                });
+            }
+
+            const team = await MatchTeams.findOne({
+                where: {
+                    id: team_id,
+                    match_id: match.id,
+                },
+                transaction,
             });
-        }
 
-        if (game.status !== "in_progress") {
-            return response.status(400).json({
-                error: "The game is not underway.",
-            });
-        }
+            if (!team) {
+                await transaction.rollback();
+                return response.status(404).json({
+                    error: "Team not found in this match",
+                });
+            }
 
-        const team = await MatchTeams.findOne({
-            where: {
-                id: team_id,
-                match_id: match.id,
-            },
-        });
+            let eventPlayerId = player_id;
+            let substitutedPlayerId = null;
 
-        if (!team) {
-            return response.status(404).json({
-                error: "Team not found in this match",
-            });
-        }
+            if (event_type === "substitution") {
+                if (player_out_id === player_in_id) {
+                    await transaction.rollback();
+                    return response.status(400).json({
+                        error: "The outgoing and incoming players must be different.",
+                    });
+                }
 
-        const matchPlayer = await MatchPlayers.findOne({
-            where: {
-                match_id: match.id,
-                team_id,
-                player_id,
-            },
-        });
+                const playerOut = await MatchPlayers.findOne({
+                    where: {
+                        match_id: match.id,
+                        team_id,
+                        player_id: player_out_id,
+                    },
+                    transaction,
+                    lock: transaction.LOCK.UPDATE,
+                });
 
-        if (!matchPlayer) {
-            return response.status(404).json({
-                error: "Player not selected for this team",
-            });
-        }
+                const playerIn = await MatchPlayers.findOne({
+                    where: {
+                        match_id: match.id,
+                        team_id,
+                        player_id: player_in_id,
+                    },
+                    transaction,
+                    lock: transaction.LOCK.UPDATE,
+                });
 
-        const effectiveSeconds =
-            await MatchGameTimeService.getElapsedSeconds(
-                game
-            );
+                if (!playerOut || !playerIn) {
+                    await transaction.rollback();
+                    return response.status(404).json({
+                        error: "Both players must belong to this team in the match.",
+                    });
+                }
 
-        const minute = Math.floor(
-            effectiveSeconds / 60
-        );
+                if (playerOut.is_reserve || !playerIn.is_reserve) {
+                    await transaction.rollback();
+                    return response.status(400).json({
+                        error: "The outgoing player must be active and the incoming player must be a reserve.",
+                    });
+                }
 
-        const expelled = await MatchEvents.findOne({
-            where: {
-                player_id,
+                const expelledPlayer = await MatchEvents.findOne({
+                    where: {
+                        match_id: match.id,
+                        game_id: game.id,
+                        event_type: "red_card",
+                        player_id: [player_out_id, player_in_id],
+                    },
+                    transaction,
+                });
+
+                if (expelledPlayer) {
+                    await transaction.rollback();
+                    return response.status(400).json({
+                        error: "A player sent off cannot take part in a substitution.",
+                    });
+                }
+
+                await playerOut.update(
+                    { is_reserve: true },
+                    { transaction }
+                );
+                await playerIn.update(
+                    { is_reserve: false },
+                    { transaction }
+                );
+
+                eventPlayerId = player_out_id;
+                substitutedPlayerId = player_in_id;
+            } else {
+                const matchPlayer = await MatchPlayers.findOne({
+                    where: {
+                        match_id: match.id,
+                        team_id,
+                        player_id,
+                    },
+                    transaction,
+                });
+
+                if (!matchPlayer) {
+                    await transaction.rollback();
+                    return response.status(404).json({
+                        error: "Player not selected for this team",
+                    });
+                }
+
+                const expelled = await MatchEvents.findOne({
+                    where: {
+                        player_id,
+                        match_id: match.id,
+                        game_id: game.id,
+                        event_type: "red_card",
+                    },
+                    transaction,
+                });
+
+                if (expelled) {
+                    await transaction.rollback();
+                    return response.status(400).json({
+                        message:
+                            "The player was sent off and can no longer participate in the game.",
+                    });
+                }
+            }
+
+            const effectiveSeconds =
+                await MatchGameTimeService.getElapsedSeconds(
+                    game,
+                    transaction
+                );
+
+            const eventData = {
                 match_id: match.id,
                 game_id: game.id,
-                event_type: "red_card",
-            },
-        });
+                player_id: eventPlayerId,
+                team_id,
+                event_type,
+                minute: Math.floor(effectiveSeconds / 60),
+            };
 
-        if (expelled) {
-            return response.status(400).json({
-                message:
-                    "The player was sent off and can no longer participate in the game.",
+            if (event_type === "substitution") {
+                eventData.substituted_player_id = substitutedPlayerId;
+            }
+
+            const matchEvent = await MatchEvents.create(eventData, {
+                transaction,
+                fields: Object.keys(eventData),
             });
+
+            await transaction.commit();
+            return response.status(201).json(matchEvent);
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
         }
-
-        const matchEvent = await MatchEvents.create({
-            match_id: match.id,
-            game_id: game.id,
-            player_id,
-            team_id,
-            event_type,
-            minute,
-        });
-
-        return response.status(201).json(matchEvent);
     }
 }
 

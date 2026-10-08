@@ -22,10 +22,10 @@ class MatchPausesController {
             });
         }
 
-        const transaction =
-            await MatchPauses.sequelize.transaction();
-
+        let transaction;
         try {
+            transaction = await MatchPauses.sequelize.transaction();
+
             const match = await Matches.findOne({
                 where: {
                     id: request.params.match_id,
@@ -107,7 +107,10 @@ class MatchPausesController {
 
             return response.status(201).json(pause);
         } catch (error) {
-            await transaction.rollback();
+
+            if (transaction && !transaction.finished) {
+                await transaction.rollback();
+            }
 
             return response.status(500).json({
                 error: "Erro interno",
@@ -217,6 +220,7 @@ class MatchPausesController {
 
             return response.status(200).json(pause);
         } catch (error) {
+            
             await transaction.rollback();
 
             return response.status(500).json({

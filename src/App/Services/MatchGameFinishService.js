@@ -64,16 +64,25 @@ class MatchGameFinishService {
                 { transaction }
             );
 
-            const unfinishedGames = await MatchGames.count({
-                where: {
-                    match_id: match.id,
-                    status: ["pending", "in_progress", "paused"],
-                },
+            const gameCount = await MatchGames.count({
+                where: { match_id: match.id },
                 transaction,
             });
 
-            if (unfinishedGames === 0) {
+            if (gameCount === 1) {
                 await MatchFinishService.finish(match, transaction);
+            } else {
+                const unfinishedGames = await MatchGames.count({
+                    where: {
+                        match_id: match.id,
+                        status: ["pending", "in_progress", "paused"],
+                    },
+                    transaction,
+                });
+
+                if (unfinishedGames === 0) {
+                    await MatchFinishService.finish(match, transaction);
+                }
             }
 
             await transaction.commit();

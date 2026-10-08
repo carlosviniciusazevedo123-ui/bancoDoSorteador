@@ -1,6 +1,7 @@
 import * as Yup from "yup";
 import Matches from "../Models/Matches.js";
 import MatchTeams from "../Models/MatchTeams.js";
+import MatchGames from "../Models/MatchGames.js";
 
 class MatchTeamsController {
     async store(request, response) {
@@ -33,6 +34,26 @@ class MatchTeamsController {
 
         if (match.user_id !== request.userId) {
             return response.status(403).json({ error: "You do not have permission to modify this match" });
+        }
+
+        const teamCount = await MatchTeams.count({
+            where: { match_id },
+        });
+
+        if (teamCount >= 2) {
+            return response.status(400).json({
+                error: "A match can contain only two teams",
+            });
+        }
+
+        const existingGame = await MatchGames.findOne({
+            where: { match_id },
+        });
+
+        if (existingGame) {
+            return response.status(400).json({
+                error: "Teams cannot be added after the game is created",
+            });
         }
 
         const existingTeam = await MatchTeams.findOne({

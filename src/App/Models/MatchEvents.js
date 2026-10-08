@@ -26,6 +26,11 @@ class MatchEvents extends Model {
                     allowNull: false,
                 },
 
+                substituted_player_id: {
+                    type: Sequelize.UUID,
+                    allowNull: true,
+                },
+
                 team_id: {
                     type: Sequelize.UUID,
                     allowNull: false,
@@ -73,6 +78,11 @@ class MatchEvents extends Model {
         this.belongsTo(models.Player, {
             foreignKey: "player_id",
             as: "player",
+        });
+
+        this.belongsTo(models.Player, {
+            foreignKey: "substituted_player_id",
+            as: "substitutedPlayer",
         });
 
         this.belongsTo(models.MatchTeams, {
