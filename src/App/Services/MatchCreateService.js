@@ -67,6 +67,24 @@ class MatchCreateService {
                 transaction,
             });
 
+            const selectedIds = new Set();
+            for (const team of drawTeams) {
+                const roster = drawPlayers.filter(row => row.team_id === team.id);
+                const starters = roster.filter(row => !row.is_reserve && (!draw.consider_goalkeepers || !row.is_goalkeeper));
+                const reserves = roster.filter(row => row.is_reserve);
+                const goalkeepers = roster.filter(row => !row.is_reserve && row.is_goalkeeper);
+                if (starters.length !== draw.players_per_team ||
+                    reserves.length !== (draw.has_reserve ? draw.reserve_per_team : 0) ||
+                    (draw.consider_goalkeepers && goalkeepers.length !== 1)) {
+                    throw new AppError("The draw roster is incomplete. Draw the teams again.");
+                }
+                for (const row of roster) {
+                    if (!row.player || selectedIds.has(row.player_id)) {
+                        throw new AppError("The draw roster is invalid. Draw the teams again.");
+                    }
+                    selectedIds.add(row.player_id);
+                }
+            }
             const match = await Matches.create(
                 { user_id: userId },
                 { transaction }

@@ -76,7 +76,7 @@ class EvaluationExpirationService {
                 transaction,
             });
 
-            for (const matchPlayer of matchPlayers) {
+            for (const matchPlayer of [...matchPlayers].sort((a, b) => a.player_id.localeCompare(b.player_id))) {
                 const possibleEvaluators = matchPlayers.filter(
                     (player) =>
                         player.team_id === matchPlayer.team_id &&
@@ -155,7 +155,7 @@ class EvaluationExpirationService {
 
                 const ratedPlayer = await Player.findByPk(
                     matchPlayer.player_id,
-                    { transaction }
+                    { transaction, lock: transaction.LOCK.UPDATE }
                 );
 
                 if (ratedPlayer) {

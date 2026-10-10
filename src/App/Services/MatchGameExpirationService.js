@@ -1,6 +1,7 @@
 import Database from "../../Database/index.js";
 import MatchGames from "../Models/MatchGames.js";
 import Matches from "../Models/Matches.js";
+import MatchGameScoreService from "./MatchGameScoreService.js";
 import MatchGameTimeService from "./MatchGameTimeService.js";
 import MatchFinishService from "./MatchFinishService.js";
 
@@ -62,11 +63,12 @@ class MatchGameExpirationService {
                 return;
             }
 
+            const winnerId = await MatchGameScoreService.getWinner(game, transaction);
             await game.update(
                 {
                     status: "finished",
                     finished_at: new Date(),
-                    winner_team_id: null,
+                    winner_team_id: winnerId,
                 },
                 { transaction }
             );

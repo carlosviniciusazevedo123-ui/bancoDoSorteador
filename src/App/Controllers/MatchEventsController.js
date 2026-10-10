@@ -8,6 +8,44 @@ import MatchGames from "../Models/MatchGames.js";
 import MatchGameTimeService from "../Services/MatchGameTimeService.js";
 
 class MatchEventsController {
+    async index(request, response) {
+        const paramsSchema = Yup.object({
+            match_id: Yup.string().uuid().required(),
+            game_id: Yup.string().uuid().required(),
+        });
+
+        try {
+            paramsSchema.validateSync(request.params, {
+                abortEarly: false,
+                strict: true,
+            });
+        } catch (error) {
+            return response.status(400).json({ error: error.errors });
+        }
+
+        const { match_id, game_id } = request.params;
+        const match = await Matches.findOne({
+            where: { id: match_id, user_id: request.userId },
+        });
+        if (!match) {
+            return response.status(404).json({ error: "Match not found" });
+        }
+
+        const game = await MatchGames.findOne({
+            where: { id: game_id, match_id: match.id },
+        });
+        if (!game) {
+            return response.status(404).json({ error: "Game not found in this match" });
+        }
+
+        const events = await MatchEvents.findAll({
+            where: { match_id: match.id, game_id: game.id },
+            order: [["createdAt", "ASC"], ["id", "ASC"]],
+        });
+        return response.status(200).json(events);
+    }
+
+
     async store(request, response) {
         const paramsSchema = Yup.object({
             match_id: Yup.string().uuid().required(),
@@ -121,6 +159,16 @@ class MatchEventsController {
                 });
             }
 
+            const effectiveSeconds =
+                await MatchGameTimeService.getElapsedSeconds(
+                    game,
+                    transaction
+                );
+            if (effectiveSeconds >= Number(game.duration) * 60) {
+                await transaction.rollback();
+                return response.status(400).json({ error: "The game time has expired." });
+            }
+
             const team = await MatchTeams.findOne({
                 where: {
                     id: team_id,
@@ -226,10 +274,10 @@ class MatchEventsController {
                     });
                 }
 
-                if (event_type === "goal" && matchPlayer.is_reserve) {
+                if (["goal", "own_goal", "assist"].includes(event_type) && matchPlayer.is_reserve) {
                     await transaction.rollback();
                     return response.status(400).json({
-                        error: "A reserve player cannot score a goal while off the field.",
+                        error: "A reserve player cannot score or assist while off the field.",
                     });
                 }
 
@@ -252,11 +300,6 @@ class MatchEventsController {
                 }
             }
 
-            const effectiveSeconds =
-                await MatchGameTimeService.getElapsedSeconds(
-                    game,
-                    transaction
-                );
 
             const eventData = {
                 match_id: match.id,

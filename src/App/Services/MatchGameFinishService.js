@@ -1,7 +1,7 @@
 import Database from "../../Database/index.js";
 import MatchGames from "../Models/MatchGames.js";
 import Matches from "../Models/Matches.js";
-import MatchTeams from "../Models/MatchTeams.js";
+import MatchGameScoreService from "./MatchGameScoreService.js";
 import MatchFinishService from "./MatchFinishService.js";
 
 class MatchGameFinishService {
@@ -39,27 +39,16 @@ class MatchGameFinishService {
                 throw new Error("Game cannot be finished.");
             }
 
-            if (
-                winnerTeamId !== game.team_a_id &&
-                winnerTeamId !== game.team_b_id
-            ) {
-                throw new Error("Winner team does not belong to this game.");
-            }
-
-            const winnerTeam = await MatchTeams.findOne({
-                where: { id: winnerTeamId, match_id: match.id },
-                transaction,
-            });
-
-            if (!winnerTeam) {
-                throw new Error("Winner team not found.");
+            const winnerId = await MatchGameScoreService.getWinner(game, transaction);
+            if (winnerTeamId !== undefined && winnerTeamId !== winnerId) {
+                throw new Error("The selected winner does not match the recorded score.");
             }
 
             await game.update(
                 {
                     status: "finished",
                     finished_at: new Date(),
-                    winner_team_id: winnerTeamId,
+                    winner_team_id: winnerId,
                 },
                 { transaction }
             );

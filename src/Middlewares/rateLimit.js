@@ -18,10 +18,22 @@ const registerRateLimit = rateLimit({
 
 const evaluationRateLimit = rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: 20,
+    limit: 300,
     message: {
         error: "Too many evaluation attempts. Please try again later.",
     },
 });
 
-export { loginRateLimit, registerRateLimit, evaluationRateLimit };
+// A team may share an IP. Submissions also have a separate session budget.
+const evaluationSubmissionRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 100,
+    keyGenerator: request => request.params.session_token,
+    message: { error: "Too many evaluation attempts. Please try again later." },
+});
+const evaluationSubmissionIpRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 3000,
+    message: { error: "Too many evaluation attempts. Please try again later." },
+});
+export { loginRateLimit, registerRateLimit, evaluationRateLimit, evaluationSubmissionRateLimit, evaluationSubmissionIpRateLimit };

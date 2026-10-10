@@ -20,6 +20,8 @@ import {
     loginRateLimit,
     registerRateLimit,
     evaluationRateLimit,
+    evaluationSubmissionRateLimit,
+    evaluationSubmissionIpRateLimit,
 } from "./Middlewares/rateLimit.js";
 
 const routes = new Router();
@@ -52,7 +54,8 @@ routes.post(
 
 routes.post(
     "/evaluations/:session_token",
-    evaluationRateLimit,
+    evaluationSubmissionIpRateLimit,
+    evaluationSubmissionRateLimit,
     PlayerEvaluationsController.store
 );
 
@@ -103,6 +106,11 @@ routes.post(
 routes.post(
     "/matches/:match_id/players",
     MatchPlayersController.store
+);
+
+routes.get(
+    "/matches/:match_id/games/:game_id/events",
+    MatchEventsController.index
 );
 
 routes.post(

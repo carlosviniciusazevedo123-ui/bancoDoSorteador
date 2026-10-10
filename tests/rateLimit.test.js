@@ -3,7 +3,7 @@ import express from 'express';
 import request from 'supertest';
 describe('Rate limits', () => {
     beforeEach(() => vi.resetModules());
-    it.each([['loginRateLimit', 10], ['registerRateLimit', 5], ['evaluationRateLimit', 20]])('%s blocks above %i and permits another client', async (name, limit) => {
+    it.each([['loginRateLimit', 10], ['registerRateLimit', 5], ['evaluationRateLimit', 300]])('%s blocks above %i and permits another client', async (name, limit) => {
         const middleware = (await import('../src/Middlewares/rateLimit.js'))[name];
         const app = express();
         app.set('trust proxy', 1);

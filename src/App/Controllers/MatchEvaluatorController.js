@@ -7,6 +7,7 @@ import Matches from "../Models/Matches.js";
 import MatchEvaluator from "../Models/MatchEvaluator.js";
 import MatchPlayers from "../Models/MatchPlayers.js";
 import Player from "../Models/Player.js";
+import PlayerEvaluations from "../Models/PlayerEvaluations.js";
 import MatchEvaluatorSession from "../Models/MatchEvaluatorSessions.js"
 
 
@@ -312,9 +313,14 @@ class MatchEvaluatorController {
         });
 
         // 7. Remove o próprio jogador da lista.
+        const submitted = await PlayerEvaluations.findAll({
+            where: { match_id: match.id, evaluator_id: player.id },
+            attributes: ["evaluated_player_id"],
+        });
+        const alreadyEvaluated = new Set(submitted.map(row => row.evaluated_player_id));
         const playersToEvaluate = teammates
             .filter((matchPlayer) =>
-                matchPlayer.player_id !== player.id
+                matchPlayer.player_id !== player.id && !alreadyEvaluated.has(matchPlayer.player_id)
             )
             .map((matchPlayer) => ({
                 id: matchPlayer.player.id,

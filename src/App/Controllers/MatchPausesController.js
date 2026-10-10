@@ -3,6 +3,7 @@ import * as Yup from "yup";
 import MatchGames from "../Models/MatchGames.js";
 import Matches from "../Models/Matches.js";
 import MatchPauses from "../Models/MatchPauses.js";
+import MatchGameTimeService from "../Services/MatchGameTimeService.js";
 
 class MatchPausesController {
     async pause(request, response) {
@@ -65,6 +66,11 @@ class MatchPausesController {
                 return response.status(400).json({
                     error: "The game is not in progress",
                 });
+            }
+
+            if (await MatchGameTimeService.isFinished(game, transaction)) {
+                await transaction.rollback();
+                return response.status(400).json({ error: "The game time has expired." });
             }
 
             const openPause = await MatchPauses.findOne({

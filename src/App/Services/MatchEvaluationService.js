@@ -7,8 +7,15 @@ class MatchEvaluationService {
             where: {
                 match_id: match.id
             },
-            transaction: transaction
+            transaction: transaction,
+            order: [["createdAt", "ASC"], ["id", "ASC"]]
         });
+
+        // Acquire shared player locks in the same order in every rating process.
+        const players = new Map();
+        for (const id of [...new Set(events.map(event => event.player_id))].sort()) {
+            players.set(id, await Player.findByPk(id, { transaction, lock: transaction.LOCK.UPDATE }));
+        }
 
         for (const event of events) {
 
@@ -32,10 +39,8 @@ class MatchEvaluationService {
             if (event.event_type === "substitution") {
                 points = 0
             };
-            const player = await Player.findByPk(
-                event.player_id,
-                { transaction: transaction }
-            );
+            const player = players.get(event.player_id);
+            if (!player) continue;
             await player.update({
                 overall_rating: Math.min(
                     10,

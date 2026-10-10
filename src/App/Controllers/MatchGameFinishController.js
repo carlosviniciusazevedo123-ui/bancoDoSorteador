@@ -6,7 +6,8 @@ class MatchGameFinishController {
         const schema = Yup.object({
             winner_team_id: Yup.string()
                 .uuid()
-                .required(),
+                .nullable()
+                .notRequired(),
         });
 
         try {
