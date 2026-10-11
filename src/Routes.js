@@ -1,3 +1,4 @@
+import HomeController from "./App/Controllers/HomeController.js";
 import { Router } from "express";
 
 import UserController from "./App/Controllers/UserController.js";
@@ -61,6 +62,10 @@ routes.post(
 
 // Rotas protegidas
 routes.use(authMiddleware);
+
+// Read-only Home summaries, scoped to the authenticated user.
+routes.get("/draws/latest", HomeController.latestDraw);
+routes.get("/matches/games/latest", HomeController.latestGame);
 
 // Rotas de Jogadores
 routes.post("/players", PlayersController.store);
