@@ -7,7 +7,14 @@ import AppError from "./App/Errors/AppError.js";
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      'http://localhost:5173',
+      'https://carlosviniciusazevedo123-ui.github.io',
+    ],
+  })
+);
 
 app.use(
     express.json({
