@@ -4,10 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "node --watch src/server.js",
-    "start": "node src/server.js",
-    "test": "vitest run"
-  },
+  "dev": "node --watch src/server.js",
+  "start": "node src/server.js",
+  "migrate": "sequelize-cli db:migrate",
+  "test": "vitest run"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",
